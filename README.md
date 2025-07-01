@@ -1,1 +1,1 @@
-# mcp-prompt-library
+# MCP Prompt Library
