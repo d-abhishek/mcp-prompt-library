@@ -1,7 +1,7 @@
 [project]
-name = "server"
+name = "mcp-prompt-library"
 version = "0.1.0"
-description = "Add your description here"
+description = "MCP server for managing and using reusable prompts"
 readme = "README.md"
 requires-python = ">=3.13"
 dependencies = [
