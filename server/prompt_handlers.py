@@ -1,6 +1,7 @@
 import frontmatter
 import jinja2
 import pathlib
+from typing import Optional
 
 # Get the prompts directory
 prompts_dir = pathlib.Path(__file__).parent.parent / "prompts"
@@ -15,7 +16,22 @@ def register_prompts(mcp):
     """Register all prompt functions with the MCP server"""
     
     @mcp.prompt()
-    def create_api(resource: str, methods: str) -> str:
-        """Generate a REST API endpoint"""
+    def create_api(api_purpose: str, expected_parameters: Optional[str] = None, custom_api_reference: Optional[str] = None) -> str:
+        """Assists developers in creating a FastAPI-based API following best practices with Pydantic models, database abstraction, and CRUD endpoints"""
         template = load_template("create_api")
-        return template.render(resource=resource, methods=methods)
+        return template.render(
+            api_purpose=api_purpose,
+            expected_parameters=expected_parameters,
+            custom_api_reference=custom_api_reference
+        )
+    
+    @mcp.prompt()
+    def code_review(code: Optional[str], language: Optional[str] = None, framework: Optional[str] = None, specific_concerns: Optional[str] = None) -> str:
+        """Perform a comprehensive code review with feedback on quality, security, and best practices"""
+        template = load_template("code_review")
+        return template.render(
+            code=code,
+            language=language,
+            framework=framework,
+            specific_concerns=specific_concerns
+        )
