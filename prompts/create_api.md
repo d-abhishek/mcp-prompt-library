@@ -11,6 +11,9 @@ arguments:
     instead of the default
   name: custom_api_reference
   required: false
+- description: Whether to generate test cases for the API (default is yes - tests will be created unless explicitly set to no)
+  name: include_tests
+  required: false
 description: Assists developers in creating a FastAPI-based API following best practices
   with Pydantic models, database abstraction, and CRUD endpoints
 name: create_api
@@ -226,3 +229,47 @@ Generate a complete, working FastAPI application that:
 - Is ready to run with `uvicorn filename:app --reload`
 
 Make sure the generated API maintains the same quality and completeness as the reference implementation while being perfectly suited for your specified use case.
+
+{% if include_tests != "no" %}
+## 6. Test Generation
+
+Additionally, create comprehensive test cases for the API using pytest and FastAPI's TestClient. Include:
+
+- Test fixtures for the database and FastAPI app
+- Unit tests for all CRUD operations
+- Validation testing for input data
+- Error handling tests (404, 400, etc.)
+- Edge cases and boundary conditions
+- Integration tests for complete workflows
+
+Generate tests following this structure:
+
+```python
+import pytest
+from fastapi.testclient import TestClient
+from your_api_module import app, get_db, YourDBClass
+
+@pytest.fixture
+def client():
+    return TestClient(app)
+
+@pytest.fixture
+def test_db():
+    return YourDBClass()
+
+@pytest.fixture
+def override_db(test_db):
+    app.dependency_overrides[get_db] = lambda: test_db
+    yield test_db
+    app.dependency_overrides.clear()
+
+# Include comprehensive test cases for all endpoints
+```
+
+Make sure tests cover:
+- All HTTP methods and endpoints
+- Valid and invalid request data
+- Database state verification
+- Response format validation
+- Status code verification
+{% endif %}

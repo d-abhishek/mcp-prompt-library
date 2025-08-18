@@ -16,13 +16,14 @@ def register_prompts(mcp):
     """Register all prompt functions with the MCP server"""
     
     @mcp.prompt()
-    def create_api(api_purpose: str, expected_parameters: Optional[str] = None, custom_api_reference: Optional[str] = None) -> str:
+    def create_api(api_purpose: str, expected_parameters: Optional[str] = None, custom_api_reference: Optional[str] = None, include_tests: Optional[str] = None) -> str:
         """Assists developers in creating a FastAPI-based API following best practices with Pydantic models, database abstraction, and CRUD endpoints"""
         template = load_template("create_api")
         return template.render(
             api_purpose=api_purpose,
             expected_parameters=expected_parameters,
-            custom_api_reference=custom_api_reference
+            custom_api_reference=custom_api_reference,
+            include_tests=include_tests
         )
     
     @mcp.prompt()
