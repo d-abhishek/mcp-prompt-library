@@ -18,6 +18,33 @@ def sanitize_filename(name: str) -> str:
         name = name.replace(char, '_')
     return name.strip()
 
+def validate_jinja2_syntax(content: str) -> tuple[bool, List[str]]:
+    """Validate that content uses Jinja2 syntax, not Handlebars/Mustache
+    
+    Returns:
+        tuple: (is_valid, list_of_warnings)
+    """
+    warnings = []
+    
+    # Check for common Handlebars patterns
+    handlebars_patterns = [
+        ('{{#if', 'Use {% if condition %} instead of {{#if condition}}'),
+        ('{{#eq', 'Use {% if var == "value" %} instead of {{#eq var "value"}}'),
+        ('{{#unless', 'Use {% if not condition %} instead of {{#unless condition}}'),
+        ('{{#each', 'Use {% for item in items %} instead of {{#each items}}'),
+        ('{{/if}}', 'Use {% endif %} instead of {{/if}}'),
+        ('{{/eq}}', 'Use {% endif %} instead of {{/eq}}'),
+        ('{{/unless}}', 'Use {% endif %} instead of {{/unless}}'),
+        ('{{/each}}', 'Use {% endfor %} instead of {{/each}}')
+    ]
+    
+    for pattern, message in handlebars_patterns:
+        if pattern in content:
+            warnings.append(f"⚠️  Found '{pattern}': {message}")
+    
+    is_valid = len(warnings) == 0
+    return is_valid, warnings
+
 def register_tools(mcp):
     """Register all MCP tools for prompt management"""
     
@@ -33,10 +60,46 @@ def register_tools(mcp):
         Args:
             name: The name/identifier for the prompt
             description: Description of what the prompt does
-            content: The prompt content (can include Jinja2 template variables like {{variable}})
+            content: The prompt content (must use Jinja2 template syntax - see template guidelines below)
             arguments: Optional list of argument definitions with 'name', 'description', and 'required' fields
+        
+        Template Syntax Guidelines:
+            This system uses Jinja2 templating engine. Please follow these syntax rules:
+            
+            ✅ CORRECT Jinja2 Syntax:
+            - Variables: {{ variable_name }}
+            - Conditionals: {% if condition %} ... {% endif %}
+            - Equality: {% if var == "value" %} ... {% endif %}
+            - Nested conditions: {% if outer %} {% if inner %} ... {% endif %} {% endif %}
+            - Comments: {# This is a comment #}
+            
+            ❌ INCORRECT (Handlebars/Mustache syntax - will cause errors):
+            - {{#if condition}} ... {{/if}}
+            - {{#eq var "value"}} ... {{/eq}}
+            - {{#unless condition}} ... {{/unless}}
+            
+            📝 Template Variables:
+            - Reference argument values using: {{ argument_name }}
+            - Use conditionals to show content based on arguments: {% if argument_name %} ... {% endif %}
+            - Check argument values: {% if argument_name == "specific_value" %} ... {% endif %}
+            
+            📚 Examples:
+            {% if user_input %}
+            You provided: {{ user_input }}
+            {% endif %}
+            
+            {% if mode == "detailed" %}
+            ## Detailed Analysis
+            {{ detailed_content }}
+            {% else %}
+            ## Quick Summary
+            {{ summary_content }}
+            {% endif %}
         """
         try:
+            # Validate Jinja2 syntax
+            is_valid, warnings = validate_jinja2_syntax(Content)
+            
             # Sanitize the filename
             filename = sanitize_filename(Name)
             file_path = prompts_dir / f"{filename}.md"
@@ -44,6 +107,11 @@ def register_tools(mcp):
             # Check if file already exists
             if file_path.exists():
                 return f"Error: Prompt '{Name}' already exists. Use update_prompt to modify it."
+            
+            # If there are syntax warnings, include them in the response but still create the prompt
+            warning_message = ""
+            if not is_valid:
+                warning_message = "\n\n⚠️  TEMPLATE SYNTAX WARNINGS:\n" + "\n".join(warnings) + "\n\nThe prompt was created but may not render correctly. Please fix the syntax issues above.\n"
             
             # Prepare metadata
             metadata = {
@@ -65,7 +133,7 @@ def register_tools(mcp):
             with open(file_path, 'w', encoding='utf-8') as f:
                 f.write(frontmatter.dumps(post))
             
-            return f"Successfully created prompt '{Name}' at {file_path}"
+            return f"Successfully created prompt '{Name}' at {file_path}{warning_message}"
             
         except Exception as e:
             return f"Error creating prompt: {str(e)}"
@@ -82,10 +150,19 @@ def register_tools(mcp):
         Args:
             name: The name/identifier of the prompt to update
             description: New description (optional)
-            content: New prompt content (optional)
+            content: New prompt content (optional - must use Jinja2 template syntax if provided)
             arguments: New argument definitions (optional)
+        
+        Note: Content must follow Jinja2 template syntax guidelines. Use {% if %} instead of {{#if}}.
         """
         try:
+            # Validate Jinja2 syntax if content is being updated
+            warning_message = ""
+            if Content is not None:
+                is_valid, warnings = validate_jinja2_syntax(Content)
+                if not is_valid:
+                    warning_message = "\n\n⚠️  TEMPLATE SYNTAX WARNINGS:\n" + "\n".join(warnings) + "\n\nThe prompt was updated but may not render correctly. Please fix the syntax issues above.\n"
+            
             # Find the file
             filename = sanitize_filename(Name)
             file_path = prompts_dir / f"{filename}.md"
@@ -112,7 +189,7 @@ def register_tools(mcp):
             with open(file_path, 'w', encoding='utf-8') as f:
                 f.write(frontmatter.dumps(post))
             
-            return f"Successfully updated prompt '{Name}'"
+            return f"Successfully updated prompt '{Name}'{warning_message}"
             
         except Exception as e:
             return f"Error updating prompt: {str(e)}"
