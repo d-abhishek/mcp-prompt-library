@@ -47,15 +47,3 @@ def register_prompts(mcp):
             functional_requirements=functional_requirements,
             test_cases=test_cases
         )
-    
-    @mcp.prompt()
-    def coding_standards_check(code: Optional[str], language: Optional[str] = None, framework: Optional[str] = None, style_guide: Optional[str] = None, company_standards: Optional[str] = None) -> str:
-        """Check code against established coding standards and best practices"""
-        template = load_template("coding_standards_check")
-        return template.render(
-            code=code,
-            language=language,
-            framework=framework,
-            style_guide=style_guide,
-            company_standards=company_standards
-        )
