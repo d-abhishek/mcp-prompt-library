@@ -1,9 +1,15 @@
 import frontmatter
 import pathlib
+import os
+import shutil
+import json
+import platform
 from typing import List, Dict, Any, Optional
 
 # Get the prompts directory
 prompts_dir = pathlib.Path(__file__).parent.parent / "prompts"
+# Get the source .github directory with instruction files
+source_github_dir = pathlib.Path(__file__).parent.parent / "data/setup_work_environment"
 
 def validate_prompt_metadata(metadata: Dict[str, Any]) -> bool:
     """Validate that prompt metadata has required fields"""
@@ -44,6 +50,127 @@ def validate_jinja2_syntax(content: str) -> tuple[bool, List[str]]:
     
     is_valid = len(warnings) == 0
     return is_valid, warnings
+
+def get_vscode_user_settings_path() -> pathlib.Path:
+    """Get the VS Code user settings.json path for the current operating system"""
+    system = platform.system()
+    
+    if system == "Windows":
+        # Windows: %APPDATA%\Code\User\settings.json
+        appdata = os.environ.get('APPDATA')
+        if appdata:
+            return pathlib.Path(appdata) / "Code" / "User" / "settings.json"
+    elif system == "Darwin":  # macOS
+        # macOS: ~/Library/Application Support/Code/User/settings.json
+        home = pathlib.Path.home()
+        return home / "Library" / "Application Support" / "Code" / "User" / "settings.json"
+    elif system == "Linux":
+        # Linux: ~/.config/Code/User/settings.json
+        home = pathlib.Path.home()
+        return home / ".config" / "Code" / "User" / "settings.json"
+    
+    # Fallback - try Windows path as default
+    appdata = os.environ.get('APPDATA', '')
+    if appdata:
+        return pathlib.Path(appdata) / "Code" / "User" / "settings.json"
+    
+    # Last resort fallback
+    home = pathlib.Path.home()
+    return home / ".vscode" / "settings.json"
+
+
+def update_vscode_user_settings(target_directory: str) -> tuple[bool, str]:
+    """Update VS Code user settings.json to include commit message instructions
+    
+    Safely preserves all existing settings while adding only the commit message instruction.
+    
+    Args:
+        target_directory: The directory containing the .github folder
+        
+    Returns:
+        tuple: (success: bool, message: str)
+    """
+    try:
+        settings_path = get_vscode_user_settings_path()
+        
+        # Create the settings directory if it doesn't exist
+        settings_path.parent.mkdir(parents=True, exist_ok=True)
+        
+        # Load existing settings or create empty dict
+        settings = {}
+        original_content = ""
+        
+        if settings_path.exists():
+            try:
+                with open(settings_path, 'r', encoding='utf-8') as f:
+                    original_content = f.read()
+                    
+                # Try to parse the JSON
+                if original_content.strip():
+                    settings = json.loads(original_content)
+                    
+            except json.JSONDecodeError as e:
+                # If settings file has JSON errors, create a backup and start fresh
+                backup_path = settings_path.with_suffix(f'.json.backup.{pathlib.Path().name}')
+                try:
+                    shutil.copy2(settings_path, backup_path)
+                    return False, f"Settings file has JSON errors. Created backup at {backup_path}. Please fix the JSON and retry."
+                except Exception:
+                    return False, f"Settings file has JSON errors and couldn't create backup: {str(e)}"
+            except Exception as e:
+                return False, f"Could not read settings file: {str(e)}"
+        
+        # Ensure settings is a dictionary
+        if not isinstance(settings, dict):
+            settings = {}
+        
+        # Define our target setting
+        commit_instructions_key = "github.copilot.chat.commitMessageGeneration.instructions"
+        target_instruction = {
+            "file": ".github/copilot-commit-message-instructions.md"
+        }
+        
+        # Get current instructions or initialize empty list
+        current_instructions = settings.get(commit_instructions_key, [])
+        
+        # Ensure it's a list
+        if not isinstance(current_instructions, list):
+            current_instructions = []
+        
+        # Check if our instruction already exists (exact match)
+        instruction_exists = any(
+            isinstance(instr, dict) and instr.get("file") == target_instruction["file"] 
+            for instr in current_instructions
+        )
+        
+        if not instruction_exists:
+            # Add our instruction to the list
+            current_instructions.append(target_instruction)
+            settings[commit_instructions_key] = current_instructions
+            
+            # Write back to settings file with proper formatting
+            try:
+                with open(settings_path, 'w', encoding='utf-8') as f:
+                    json.dump(settings, f, indent=4, ensure_ascii=False, sort_keys=False)
+                
+                return True, f"Added commit message instructions to VS Code settings"
+                
+            except Exception as e:
+                # If write fails, restore the original content
+                if original_content:
+                    try:
+                        with open(settings_path, 'w', encoding='utf-8') as f:
+                            f.write(original_content)
+                    except Exception:
+                        pass  # Best effort to restore
+                        
+                return False, f"Failed to write settings file: {str(e)}"
+        else:
+            return True, f"Commit message instructions already exist in VS Code settings"
+            
+    except Exception as e:
+        return False, f"Failed to update VS Code settings: {str(e)}"
+
 
 def register_tools(mcp):
     """Register all MCP tools for prompt management"""
@@ -437,3 +564,161 @@ def register_tools(mcp):
                 
         except Exception as e:
             return f"Error in auto-execution: {str(e)}"
+
+    @mcp.tool()
+    def setup_work_environment(
+        target_directory: str, 
+        update_vscode_settings: bool = True,
+        update_gitignore: bool = True,
+        gitignore_entries: Optional[List[str]] = None
+    ) -> str:
+        """Setup work environment by copying GitHub Copilot instruction files to target directory.
+        
+        EXACTLY what this tool does:
+        1. Creates .github folder in target directory
+        2. Copies copilot-instructions.md (code quality guidelines)
+        3. Copies copilot-commit-message-instructions.md (Git standards)
+        4. Optionally updates VS Code user settings for commit message generation
+        5. Optionally updates .gitignore to exclude .github/ folder and other entries
+        
+        Args:
+            target_directory: The root directory where .github folder should be created
+            update_vscode_settings: Whether to update VS Code settings (default: True)
+            update_gitignore: Whether to update .gitignore file (default: True)
+            gitignore_entries: Custom entries to add to .gitignore (default: [".github/"])
+        """
+        try:
+            # Validate and resolve target directory
+            target_path = pathlib.Path(target_directory).resolve()
+            
+            if not target_path.exists():
+                return f"Error: Target directory '{target_directory}' does not exist."
+            
+            if not target_path.is_dir():
+                return f"Error: '{target_directory}' is not a directory."
+            
+            # Create .github directory in target location
+            github_target_dir = target_path / ".github"
+            github_target_dir.mkdir(exist_ok=True)
+            
+            # Define source files to copy
+            files_to_copy = [
+                "copilot-instructions.md",
+                "copilot-commit-message-instructions.md"
+            ]
+            
+            copied_files = []
+            errors = []
+            
+            for filename in files_to_copy:
+                source_file = source_github_dir / filename
+                target_file = github_target_dir / filename
+                
+                if not source_file.exists():
+                    errors.append(f"Source file '{filename}' not found in {source_github_dir}")
+                    continue
+                
+                try:
+                    # Copy the file
+                    shutil.copy2(source_file, target_file)
+                    copied_files.append(filename)
+                except Exception as e:
+                    errors.append(f"Failed to copy '{filename}': {str(e)}")
+            
+            # Update .gitignore if requested
+            gitignore_success = False
+            gitignore_message = ""
+            if update_gitignore:
+                try:
+                    gitignore_path = target_path / ".gitignore"
+                    
+                    # Default entries if none specified
+                    if gitignore_entries is None:
+                        gitignore_entries = [".github/"]
+                    
+                    # Read existing content if file exists
+                    existing_content = ""
+                    if gitignore_path.exists():
+                        with open(gitignore_path, 'r', encoding='utf-8') as f:
+                            existing_content = f.read()
+                    
+                    # Check which entries need to be added
+                    new_entries = []
+                    for entry in gitignore_entries:
+                        entry = entry.strip()
+                        if entry and entry not in existing_content:
+                            new_entries.append(entry)
+                    
+                    if new_entries:
+                        # Append new entries
+                        with open(gitignore_path, 'a', encoding='utf-8') as f:
+                            if existing_content and not existing_content.endswith('\n'):
+                                f.write('\n')
+                            for entry in new_entries:
+                                f.write(f"{entry}\n")
+                        
+                        gitignore_success = True
+                        gitignore_message = f"Added {len(new_entries)} entries to .gitignore: {', '.join(new_entries)}"
+                    else:
+                        gitignore_success = True
+                        gitignore_message = "All specified entries already exist in .gitignore"
+                        
+                except Exception as e:
+                    gitignore_success = False
+                    gitignore_message = f"Failed to update .gitignore: {str(e)}"
+            
+            # Update VS Code settings if requested
+            vscode_success = False
+            vscode_message = ""
+            if update_vscode_settings:
+                vscode_success, vscode_message = update_vscode_user_settings(target_directory)
+            
+            # Prepare result message
+            result = f"🚀 **Work Environment Setup Complete**\n\n"
+            result += f"**Target Directory**: {target_path}\n"
+            result += f"**GitHub Directory**: {github_target_dir}\n\n"
+            
+            if copied_files:
+                result += f"✅ **Successfully copied {len(copied_files)} file(s)**:\n"
+                for filename in copied_files:
+                    result += f"   - {filename}\n"
+            
+            if update_gitignore:
+                if gitignore_success:
+                    result += f"\n✅ **.gitignore**: {gitignore_message}\n"
+                else:
+                    result += f"\n⚠️ **.gitignore**: {gitignore_message}\n"
+            
+            if update_vscode_settings:
+                if vscode_success:
+                    result += f"\n✅ **VS Code Settings**: {vscode_message}\n"
+                    result += f"   - Settings file: {get_vscode_user_settings_path()}\n"
+                else:
+                    result += f"\n⚠️ **VS Code Settings**: {vscode_message}\n"
+            
+            if errors:
+                result += f"\n⚠️ **Encountered {len(errors)} error(s)**:\n"
+                for error in errors:
+                    result += f"   - {error}\n"
+            
+            result += f"\n📋 **Files provide**:\n"
+            result += f"   - **copilot-instructions.md**: Comprehensive code quality guidelines, standards, and best practices\n"
+            result += f"   - **copilot-commit-message-instructions.md**: Git commit message format, branch naming, and PR standards\n"
+            
+            if update_vscode_settings and vscode_success:
+                result += f"\n� **VS Code Integration**:\n"
+                result += f"   - GitHub Copilot will now use your commit message guidelines\n"
+                result += f"   - Commit message suggestions will follow your standards\n"
+                result += f"   - Setting: github.copilot.chat.commitMessageGeneration.instructions\n"
+            
+            result += f"\n�💡 **Next Steps**:\n"
+            result += f"   1. Review and customize the guidelines for your team\n"
+            result += f"   2. Restart VS Code to apply the new settings\n"
+            result += f"   3. Set up pre-commit hooks for automated compliance\n"
+            result += f"   4. Share with your development team\n"
+            result += f"   5. Test GitHub Copilot commit message generation\n"
+            
+            return result
+            
+        except Exception as e:
+            return f"Error setting up work environment: {str(e)}"

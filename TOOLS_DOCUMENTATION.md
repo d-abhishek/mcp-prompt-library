@@ -71,6 +71,103 @@ Lists all available MCP prompts.
 }
 ```
 
+### 5. `setup_work_environment`
+Sets up a work environment by copying GitHub Copilot instruction files to a target directory and optionally configuring VS Code settings and .gitignore.
+
+**Scope - EXACTLY what it does:**
+- Creates `.github` directory in target location
+- Copies `copilot-instructions.md` (comprehensive coding guidelines)
+- Copies `copilot-commit-message-instructions.md` (Git workflow standards)
+- Updates VS Code user settings.json for commit message instructions (if enabled)
+- Updates .gitignore with common development entries (if enabled)
+
+**Scope - What it does NOT do:**
+- Create .env files
+- Install dependencies
+- Modify package.json or project files
+- Make git commits
+- Perform any actions outside the specified parameters
+
+**Parameters:**
+- `target_directory` (required): The root directory where `.github` folder should be created
+- `update_vscode_settings` (optional, default: true): Whether to update VS Code user settings
+- `update_gitignore` (optional, default: true): Whether to update .gitignore file
+- `gitignore_entries` (optional): List of entries to add to .gitignore. If not specified, uses default common entries
+
+**Default .gitignore entries:**
+```
+# Development
+.env
+.env.local
+.env.*.local
+*.log
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Editors
+.vscode/settings.json
+.idea/
+
+# Dependencies
+node_modules/
+__pycache__/
+*.pyc
+
+# Build
+dist/
+build/
+*.egg-info/
+```
+
+**Examples:**
+```json
+{
+  "target_directory": "/path/to/your/project",
+  "update_vscode_settings": true,
+  "update_gitignore": true
+}
+```
+
+```json
+{
+  "target_directory": "/path/to/your/project",
+  "update_vscode_settings": false,
+  "update_gitignore": true,
+  "gitignore_entries": ["*.tmp", "temp/", "logs/"]
+}
+```
+
+**VS Code Integration:**
+When `update_vscode_settings` is true, the tool safely updates your VS Code user settings while preserving all existing configurations:
+
+- **Preserves all existing settings**: Your current VS Code configuration remains completely intact
+- **Smart duplicate detection**: Won't add duplicate entries if the setting already exists
+- **Safe JSON handling**: Creates backups and recovers gracefully from corrupted settings files
+- **Proper formatting**: Maintains clean JSON structure with 4-space indentation
+- **Error recovery**: Automatically restores original content if any write operation fails
+
+The tool adds this setting to your VS Code user settings:
+```json
+{
+  "github.copilot.chat.commitMessageGeneration.instructions": [
+    {
+      "file": ".github/copilot-commit-message-instructions.md"
+    }
+  ]
+}
+```
+
+This ensures GitHub Copilot uses your custom commit message guidelines when generating commit messages.
+
+**Use Cases:**
+- Setting up new development projects with standardized coding guidelines
+- Onboarding new team members with consistent development standards
+- Implementing company-wide coding practices across multiple repositories
+- Establishing GitHub Copilot best practices for your organization
+- Automatically configuring VS Code to use your commit message standards
+
 ## Prompt File Format
 
 Each prompt file is stored as a Markdown file with YAML frontmatter:
@@ -115,6 +212,43 @@ Your prompt content here with {{variable_name}} placeholders.
   ]
 }
 ```
+
+### Setting Up Work Environment
+```json
+{
+  "target_directory": "C:\\Users\\username\\Projects\\my-new-project",
+  "update_vscode_settings": true
+}
+```
+
+This will create a `.github` directory with:
+- **copilot-instructions.md**: Comprehensive coding standards and best practices
+- **copilot-commit-message-instructions.md**: Git workflow and commit message standards
+
+And automatically configure VS Code by adding:
+```json
+{
+  "github.copilot.chat.commitMessageGeneration.instructions": [
+    {
+      "file": ".github/copilot-commit-message-instructions.md"
+    }
+  ]
+}
+```
+
+The files provide guidelines for:
+- Code quality and consistency standards
+- Security and compliance requirements
+- Testing and documentation practices
+- Git commit message formatting
+- Branch naming conventions
+- Pull request standards
+
+**VS Code Benefits:**
+- GitHub Copilot will automatically use your commit message guidelines
+- Consistent commit message generation across your team
+- No manual configuration required
+- Works across all projects that include the `.github` folder
 
 ## Running the Server
 
