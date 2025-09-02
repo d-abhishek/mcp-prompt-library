@@ -1,11 +1,11 @@
 ---
 arguments:
-- description: The code to be reviewed
-  name: code
-  required: false
+- description: The code to review, file name, or function/method name to analyze
+  name: code_reference
+  required: true
 - description: Programming language of the code (e.g., python, javascript, java)
   name: language
-  required: false
+  required: true
 - description: Framework being used (e.g., React, Django, Spring)
   name: framework
   required: false
@@ -63,26 +63,32 @@ You are an expert software engineer. Please perform a comprehensive code review 
 
 **⚠️ IMPORTANT: This is a review-only process. Do not implement or make any changes to the code. Only provide suggestions, recommendations, and examples for improvement.**
 
-{{#if language}}
-**Language:** {{language}}
-{{/if}}
+{% if language %}
+**Language:** {{ language }}
+{% endif %}
 
-{{#if framework}}
-**Framework:** {{framework}}
-{{/if}}
+{% if framework %}
+**Framework:** {{ framework }}
+{% endif %}
 
-{{#if review_depth}}
-**Review Depth:** {{review_depth}}
-{{/if}}
+{% if review_depth %}
+**Review Depth:** {{ review_depth }}
+{% endif %}
 
-{{#if company_guidelines}}
-**Company Guidelines Focus:** {{company_guidelines}}
-{{/if}}
+{% if company_guidelines %}
+**Company Guidelines Focus:** {{ company_guidelines }}
+{% endif %}
 
 **Code to Review:**
-```{{language}}
-{{code}}
+{% if code_reference|length < 200 and ('.' in code_reference or code_reference.split()|length < 5) %}
+**Target**: {{ code_reference }}
+
+Please locate and analyze the specified file or function for the review.
+{% else %}
+```{{ language }}
+{{ code_reference }}
 ```
+{% endif %}
 
 ## 🎯 Company Coding Guidelines Compliance
 
@@ -207,18 +213,33 @@ Fix mobile login validation issue
 Please provide feedback on:
 
 ## 🔍 Code Quality & Readability
-- **Readability**: Is the code clear and well-structured? Can other developers easily understand it?
-- **Consistency**: Does the code follow consistent formatting standards?
+- **Readability**: Is the code clear, well-structured, and easily understandable by other developers?
+  - Are variable and function names descriptive and self-explanatory?
+  - Is the code flow logical and easy to follow?
+  - Are complex operations broken down into smaller, understandable parts?
+- **Consistency**: Does the code follow consistent formatting and style standards?
   - Indentation: 4 spaces per level (never tabs)
   - Line Length: 80-120 characters maximum
   - Blank Lines: Proper separation of logical sections
-- **Naming Conventions**: Are variables, functions, and classes named descriptively?
+  - Consistent code style throughout the codebase
+- **Naming Conventions**: Are identifiers named descriptively and consistently?
   - Variables/Functions: snake_case (or camelCase if language standard)
   - Classes/Types: PascalCase
   - Constants: ALL_CAPS_WITH_UNDERSCORES
   - Files/Directories: lowercase with hyphens or underscores
-- **Structure**: Are projects organized logically with related modules grouped together?
-- **Complexity**: Are there overly complex functions that should be simplified? Is simplicity preferred over cleverness?
+- **Structure**: Is the code organized logically with related modules grouped together?
+  - Clear separation of concerns
+  - Logical file and folder organization
+  - Proper imports and dependencies
+- **Complexity**: Are there overly complex functions that should be simplified?
+  - Functions should have a single responsibility
+  - Cyclomatic complexity should be kept low
+  - Prefer simplicity and clarity over cleverness
+- **Code Smell Detection**: Are there any code smells that indicate potential issues?
+  - Long methods or classes
+  - Duplicated code
+  - Large parameter lists
+  - Feature envy or inappropriate intimacy between classes
 
 ## 📚 Documentation & Comments
 - **Comments**: Explain the "why" behind complex logic, not the obvious "what"
@@ -280,15 +301,35 @@ Please provide feedback on:
 - **Version Control**: Are commits frequent with descriptive messages?
 
 ## 🔄 Maintainability & Evolution
+- **Code Maintainability**: How easy is it to modify, extend, and debug the code?
+  - Are functions and classes well-encapsulated with clear interfaces?
+  - Is the code modular and loosely coupled?
+  - Can individual components be tested and modified independently?
 - **Refactoring Needs**: Are there areas that need refactoring for better maintainability?
+  - Identification of duplicate code that should be extracted
+  - Long methods or classes that should be broken down
+  - Complex conditional logic that could be simplified
 - **Code Aging**: Is the code using current best practices and not outdated patterns?
+  - Are deprecated APIs or libraries being used?
+  - Is the code following modern language idioms?
+  - Are security practices up-to-date?
 - **Technical Debt**: Are there areas of technical debt that should be addressed?
+  - Quick fixes that need proper implementation
+  - Temporary workarounds that have become permanent
+  - Code that was written under time pressure and needs improvement
 - **Future-Proofing**: Is the code designed to accommodate future changes?
+  - Are interfaces flexible enough for extension?
+  - Is configuration externalized appropriately?
+  - Are assumptions about data or usage patterns documented?
+- **Dependency Management**: Are dependencies well-managed and maintainable?
+  - Are third-party libraries up-to-date and actively maintained?
+  - Is the dependency tree kept minimal and necessary?
+  - Are version constraints appropriate?
 
-{{#if specific_concerns}}
+{% if specific_concerns %}
 ## 🎯 Specific Areas of Focus
-Please pay special attention to: {{specific_concerns}}
-{{/if}}
+Please pay special attention to: {{ specific_concerns }}
+{% endif %}
 
 For each issue identified, please provide:
 1. **Severity Level** (Critical/High/Medium/Low)
