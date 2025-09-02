@@ -213,6 +213,21 @@ Your prompt content here with {{variable_name}} placeholders.
 }
 ```
 
+### Creating a Code Correctness Review Prompt
+```json
+{
+  "name": "code_correctness_review",
+  "description": "Review code for correctness, functional requirements, and potential bugs or issues",
+  "content": "You are an expert {{language}} code reviewer specializing in correctness and functional requirements...",
+  "arguments": [
+    {"name": "code_reference", "description": "The code to review, file name, or function/method name to analyze for correctness and functionality", "required": true},
+    {"name": "language", "description": "Programming language of the code (e.g., python, javascript, java)", "required": true},
+    {"name": "functional_requirements", "description": "Functional requirements or specifications the code should meet", "required": true},
+    {"name": "test_cases", "description": "Specific test cases or scenarios to verify against", "required": false}
+  ]
+}
+```
+
 ### Setting Up Work Environment
 ```json
 {
@@ -265,8 +280,10 @@ The server will register all tools and be available for MCP clients to use.
 
 ```
 mcp-prompt-library/
-├── prompts/           # Directory containing prompt .md files
-│   ├── create_api.md  # Example prompt file
+├── prompts/                     # Directory containing prompt .md files
+│   ├── create_api.md           # API creation prompt
+│   ├── code_review.md          # Code review prompt  
+│   └── code_correctness_review.md # Code correctness and functional review prompt
 │   └── ...           # Your custom prompts
 ├── server/           # MCP server code
 │   ├── server.py     # Main server entry point

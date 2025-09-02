@@ -88,8 +88,9 @@ Required arguments:
 
 Usage: Call the prompt create_api with the appropriate arguments.
 
-Other matches (1 found):
+Other matches (2 found):
 - code_review (score: 8): Perform a comprehensive code review...
+- code_correctness_review (score: 6): Review code for correctness, functional requirements, and potential bugs...
 ```
 
 ### Automatic Execution
@@ -223,7 +224,12 @@ elif 'your_keyword' in query_lower and 'trigger_word' in query_lower:
 
 **Result:** Suggests `code_review` prompt with focus on security
 
-### Scenario 3: Ambiguous Query
+### Scenario 3: Code Correctness Review
+**User Query:** "check if my function meets the requirements and works correctly"
+
+**Result:** Suggests `code_correctness_review` prompt for functional verification and bug detection
+
+### Scenario 4: Ambiguous Query
 **User Query:** "help me with my project"
 
 **Result:** Lists all available prompts since no specific match found

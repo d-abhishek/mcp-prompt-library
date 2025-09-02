@@ -36,3 +36,14 @@ def register_prompts(mcp):
             framework=framework,
             specific_concerns=specific_concerns
         )
+    
+    @mcp.prompt()
+    def code_correctness_review(code_reference: str, language: str, functional_requirements: str, test_cases: Optional[str] = None) -> str:
+        """Review code for correctness against functional requirements and test cases"""
+        template = load_template("code_correctness_review")
+        return template.render(
+            code_reference=code_reference,
+            language=language,
+            functional_requirements=functional_requirements,
+            test_cases=test_cases
+        )

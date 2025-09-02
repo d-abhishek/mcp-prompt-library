@@ -32,6 +32,24 @@ Here are some example queries you can try with your enhanced MCP prompt library:
 - **Tool:** `list_prompts(query="analyze my React component for optimization")` 
 - **Result:** Recommends `code_review` with React framework context
 
+### Code Correctness Review Examples
+
+**Query:** "check if my function works correctly"
+- **Tool:** `list_prompts(query="check if my function works correctly")`
+- **Result:** Returns `code_correctness_review` as the top match for functional verification
+
+**Query:** "verify this Python code meets the requirements"
+- **Tool:** `smart_prompt_executor` with code and requirements
+- **Result:** Automatically runs correctness review with Python expertise
+
+**Query:** "test this JavaScript function for bugs and edge cases"
+- **Tool:** `code_correctness_review` with language="javascript"
+- **Result:** Specialized JavaScript correctness analysis with bug detection
+
+**Query:** "review calculateTotal() function in utils.py"
+- **Tool:** `code_correctness_review` with code_reference="calculateTotal()"
+- **Result:** Targeted analysis of specific function for correctness issues
+
 ### General Discovery
 
 **Query:** "what can you help me with?"

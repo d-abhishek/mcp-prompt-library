@@ -114,15 +114,16 @@ System: 🚀 Auto-executed create_api prompt with detected parameters:
 
 ```
 mcp-prompt-library/
-├── prompts/                 # Prompt files directory
-│   ├── create_api.md       # Enhanced API creation prompt
-│   └── code_review.md      # Enhanced code review prompt
-├── server/                 # MCP server
-│   ├── server.py          # Main server entry point
-│   ├── prompt_handlers.py # Prompt functions and registration
-│   ├── prompt_tools.py    # MCP tools with smart discovery
-│   └── pyproject.toml     # Dependencies
-├── PROMPT_DISCOVERY.md    # Smart discovery documentation
+├── prompts/                     # Prompt files directory
+│   ├── create_api.md           # Enhanced API creation prompt
+│   ├── code_review.md          # Enhanced code review prompt
+│   └── code_correctness_review.md # Code correctness and functional requirements review
+├── server/                     # MCP server
+│   ├── server.py              # Main server entry point
+│   ├── prompt_handlers.py     # Prompt functions and registration
+│   ├── prompt_tools.py        # MCP tools with smart discovery
+│   └── pyproject.toml         # Dependencies
+├── PROMPT_DISCOVERY.md        # Smart discovery documentation
 └── README.md
 ```
 
