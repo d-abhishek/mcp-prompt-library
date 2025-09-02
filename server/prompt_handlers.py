@@ -27,14 +27,14 @@ def register_prompts(mcp):
         )
     
     @mcp.prompt()
-    def code_review(code: Optional[str], language: Optional[str] = None, framework: Optional[str] = None, specific_concerns: Optional[str] = None) -> str:
-        """Perform a comprehensive code review with feedback on quality, security, and best practices"""
+    def code_review(code_reference: str, language: str, specific_concerns: Optional[str] = None, company_guidelines: Optional[str] = None) -> str:
+        """Perform a comprehensive code review with feedback on quality, architecture, and best practices"""
         template = load_template("code_review")
         return template.render(
-            code=code,
+            code_reference=code_reference,
             language=language,
-            framework=framework,
-            specific_concerns=specific_concerns
+            specific_concerns=specific_concerns,
+            company_guidelines=company_guidelines
         )
     
     @mcp.prompt()
@@ -46,4 +46,26 @@ def register_prompts(mcp):
             language=language,
             functional_requirements=functional_requirements,
             test_cases=test_cases
+        )
+    
+    @mcp.prompt()
+    def performance_bottleneck_analysis(code_reference: str, language: str, specific_performance_areas: Optional[str] = None, number_of_users: Optional[str] = None) -> str:
+        """Identify performance bottlenecks, algorithmic inefficiencies, and scalability issues in code with detailed optimization recommendations"""
+        template = load_template("performance_bottleneck_analysis")
+        return template.render(
+            code_reference=code_reference,
+            language=language,
+            specific_performance_areas=specific_performance_areas,
+            number_of_users=number_of_users
+        )
+    
+    @mcp.prompt()
+    def security_vulnerability_analysis(code_reference: str, language: str, security_focus: Optional[str] = None, compliance_requirements: Optional[str] = None) -> str:
+        """Identify security vulnerabilities, weaknesses, and attack vectors in code with comprehensive remediation strategies and compliance guidance"""
+        template = load_template("security_vulnerability_analysis")
+        return template.render(
+            code_reference=code_reference,
+            language=language,
+            security_focus=security_focus,
+            compliance_requirements=compliance_requirements
         )

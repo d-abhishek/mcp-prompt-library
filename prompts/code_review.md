@@ -6,14 +6,8 @@ arguments:
 - description: Programming language of the code (e.g., python, javascript, java)
   name: language
   required: true
-- description: Framework being used (e.g., React, Django, Spring)
-  name: framework
-  required: false
 - description: Specific areas or concerns to focus on during the review
   name: specific_concerns
-  required: false
-- description: Review depth level (quick/standard/comprehensive)
-  name: review_depth
   required: false
 - description: Company-specific guidelines to emphasize (if any)
   name: company_guidelines
@@ -65,14 +59,6 @@ You are an expert software engineer. Please perform a comprehensive code review 
 
 {% if language %}
 **Language:** {{ language }}
-{% endif %}
-
-{% if framework %}
-**Framework:** {{ framework }}
-{% endif %}
-
-{% if review_depth %}
-**Review Depth:** {{ review_depth }}
 {% endif %}
 
 {% if company_guidelines %}
@@ -258,21 +244,6 @@ Please provide feedback on:
 - **Modularity**: Is the code properly organized into logical modules/components?
 - **Design Patterns**: Are appropriate design patterns being used correctly?
 
-## 🔒 Security & Compliance
-- **Input Validation**: Are all external inputs properly validated and sanitized to prevent injection attacks?
-- **Authentication/Authorization**: Are security measures properly implemented?
-- **Data Exposure**: Is sensitive data properly protected? Are credentials never hardcoded?
-- **Security Standards**: Does the code follow industry standards (OWASP, CERT)?
-- **Regulatory Compliance**: Are relevant regulations (GDPR, HIPAA) considered?
-- **SQL Injection/XSS**: Are there potential security vulnerabilities?
-
-## ⚡ Performance & Efficiency
-- **Algorithm Efficiency**: Are there performance bottlenecks or inefficient algorithms?
-- **Memory Usage**: Is memory being used efficiently?
-- **Database Operations**: Are database queries optimized?
-- **Caching**: Would caching strategies improve performance?
-- **Resource Management**: Are resources properly allocated and released?
-
 ## 🔧 Error Handling & Robustness
 - **Structured Error Handling**: Are native exception mechanisms used properly (try-catch, try-except)?
 - **Meaningful Error Messages**: Are error messages logged appropriately without exposing sensitive data?
@@ -333,9 +304,9 @@ Please pay special attention to: {{ specific_concerns }}
 
 For each issue identified, please provide:
 1. **Severity Level** (Critical/High/Medium/Low)
-   - **Critical**: Security vulnerabilities, data loss risks, system crashes
-   - **High**: Performance issues, major design flaws, compliance violations
-   - **Medium**: Code quality issues, maintainability concerns, minor security issues  
+   - **Critical**: System crashes, data loss risks, major architectural flaws
+   - **High**: Major design flaws, compliance violations, significant maintainability issues
+   - **Medium**: Code quality issues, maintainability concerns, minor architectural problems
    - **Low**: Style inconsistencies, documentation gaps, minor optimizations
 2. **Specific Location** (line numbers, function names, or file sections if applicable)
 3. **Clear Explanation** of the issue and why it matters
@@ -356,9 +327,9 @@ For each issue identified, please provide:
 
 **Compliance Status:**
 - ✅ Company Coding Guidelines: [Compliant/Needs Work]
-- ✅ Security Standards: [Compliant/Needs Work]  
 - ✅ Documentation Standards: [Compliant/Needs Work]
 - ✅ Testing Standards: [Compliant/Needs Work]
+- ✅ Architecture Standards: [Compliant/Needs Work]
 
 **Next Steps:**
 1. Immediate actions required (Critical/High issues)
@@ -366,3 +337,7 @@ For each issue identified, please provide:
 3. Future considerations (Low priority items)
 
 **Estimated Effort**: [Hours/Days for addressing priority issues]
+
+**Note**: This review focuses on code quality, architecture, maintainability, and general best practices. For specialized analysis, consider using:
+- `performance_bottleneck_analysis` - For detailed performance and scalability assessment
+- `security_vulnerability_analysis` - For comprehensive security vulnerability analysis
