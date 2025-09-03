@@ -88,3 +88,16 @@ def register_prompts(mcp):
             code_reference=code_reference,
             language=language
         )
+    
+    @mcp.prompt()
+    def bug_analysis_and_resolution(bug_description: str, code_reference: Optional[str] = None, language: Optional[str] = None, error_logs: Optional[str] = None, steps_to_reproduce: Optional[str] = None, environment_details: Optional[str] = None) -> str:
+        """A comprehensive prompt to guide developers in analyzing bugs, understanding root causes, and implementing effective solutions with proper testing and documentation."""
+        template = load_template("bug_analysis_and_resolution")
+        return template.render(
+            bug_description=bug_description,
+            code_reference=code_reference,
+            language=language,
+            error_logs=error_logs,
+            steps_to_reproduce=steps_to_reproduce,
+            environment_details=environment_details
+        )
