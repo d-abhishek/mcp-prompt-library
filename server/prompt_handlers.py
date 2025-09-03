@@ -101,3 +101,18 @@ def register_prompts(mcp):
             steps_to_reproduce=steps_to_reproduce,
             environment_details=environment_details
         )
+    
+    @mcp.prompt()
+    def generate_project_documentation(project_name: str, project_type: str, primary_language: str, project_description: Optional[str] = None, target_audience: Optional[str] = None, include_api_docs: Optional[str] = None, include_architecture: Optional[str] = None, deployment_platforms: Optional[str] = None) -> str:
+        """Generate comprehensive project documentation including README, architecture overview, setup instructions, and API documentation. Creates or updates markdown files in the documentation directory."""
+        template = load_template("generate_project_documentation")
+        return template.render(
+            project_name=project_name,
+            project_type=project_type,
+            primary_language=primary_language,
+            project_description=project_description,
+            target_audience=target_audience,
+            include_api_docs=include_api_docs,
+            include_architecture=include_architecture,
+            deployment_platforms=deployment_platforms
+        )
