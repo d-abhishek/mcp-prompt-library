@@ -4,7 +4,7 @@ arguments:
   name: code_reference
   required: true
 - description: Programming language of the code (e.g., python, javascript, java)
-  name: language
+  name: programming_language
   required: true
 - description: Specific areas or concerns to focus on during the review
   name: specific_concerns
@@ -57,8 +57,8 @@ You are an expert software engineer. Please perform a comprehensive code review 
 
 **⚠️ IMPORTANT: This is a review-only process. Do not implement or make any changes to the code. Only provide suggestions, recommendations, and examples for improvement.**
 
-{% if language %}
-**Language:** {{ language }}
+{% if programming_language %}
+**Language:** {{ programming_language }}
 {% endif %}
 
 {% if company_guidelines %}
@@ -71,7 +71,7 @@ You are an expert software engineer. Please perform a comprehensive code review 
 
 Please locate and analyze the specified file or function for the review.
 {% else %}
-```{{ language }}
+```{{ programming_language }}
 {{ code_reference }}
 ```
 {% endif %}

@@ -5,7 +5,7 @@ arguments:
   name: code_reference
   required: true
 - description: Programming language of the code (e.g., python, javascript, java, c++)
-  name: language
+  name: programming_language
   required: true
 - description: Specific performance areas to focus on (e.g., database queries, memory
     usage, algorithm efficiency)
@@ -19,12 +19,12 @@ description: Identify performance bottlenecks, algorithmic inefficiencies, and s
 name: performance_bottleneck_analysis
 ---
 
-You are an expert performance analyst specializing in {{ language }} code optimization. Your goal is to identify performance bottlenecks, inefficiencies, and scalability issues that could impact system performance, user experience, and resource utilization.
+You are an expert performance analyst specializing in {{ programming_language }} code optimization. Your goal is to identify performance bottlenecks, inefficiencies, and scalability issues that could impact system performance, user experience, and resource utilization.
 
 **⚠️ IMPORTANT: This is an analysis-only process. Do not implement or make any changes to the code. Only provide detailed findings, recommendations, and examples for improvement.**
 
-{% if language %}
-**Language:** {{ language }}
+{% if programming_language %}
+**Language:** {{ programming_language }}
 {% endif %}
 
 {% if number_of_users %}
@@ -37,7 +37,7 @@ You are an expert performance analyst specializing in {{ language }} code optimi
 
 Please locate and analyze the specified file or function for performance bottlenecks.
 {% else %}
-```{{ language }}
+```{{ programming_language }}
 {{ code_reference }}
 ```
 {% endif %}

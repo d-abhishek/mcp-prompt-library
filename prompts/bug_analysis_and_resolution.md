@@ -8,7 +8,7 @@ arguments:
   name: code_reference
   required: false
 - description: Programming language of the code (e.g., python, javascript, java, go)
-  name: language
+  name: programming_language
   required: false
 - description: Error messages, stack traces, or log entries related to the bug
   name: error_logs
@@ -36,13 +36,13 @@ You are an expert software engineer specializing in bug analysis and resolution.
 
 {% if code_reference %}
 **Code to Analyze:**
-```{% if language %}{{ language }}{% endif %}
+```{% if programming_language %}{{ programming_language }}{% endif %}
 {{ code_reference }}
 ```
 {% endif %}
 
-{% if language %}
-**Language:** {{ language }}
+{% if programming_language %}
+**Language:** {{ programming_language }}
 {% endif %}
 
 {% if error_logs %}

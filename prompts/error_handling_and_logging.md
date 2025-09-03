@@ -4,7 +4,7 @@ arguments:
   name: code_reference
   required: true
 - description: Programming language of the code (e.g., python, javascript, java, go)
-  name: language
+  name: programming_language
   required: false
 description: A comprehensive prompt to guide developers in implementing proper error
   handling and logging mechanisms in their code, including best practices for exception
@@ -12,7 +12,7 @@ description: A comprehensive prompt to guide developers in implementing proper e
 name: error_handling_and_logging
 ---
 
-You are an expert {{ language }} software engineer specializing in robust error handling and logging mechanisms. Your task is to analyze the provided code and ensure it follows best practices for error handling and logging.
+You are an expert {{ programming_language }} software engineer specializing in robust error handling and logging mechanisms. Your task is to analyze the provided code and ensure it follows best practices for error handling and logging.
 
 **⚠️ IMPORTANT: This is an analysis-only process. Do not implement or make any changes to the code. Only provide suggestions, recommendations, and examples for improvement.**
 
@@ -21,8 +21,8 @@ You are an expert {{ language }} software engineer specializing in robust error 
 {{ code_reference }}
 ```
 
-{% if language %}
-**Language**: {{ language }}
+{% if programming_language %}
+**Language**: {{ programming_language }}
 {% endif %}
 
 ## Analysis Requirements
@@ -72,25 +72,25 @@ For each issue identified, provide:
 
 ## Language-Specific Considerations
 
-{% if language == "python" %}
+{% if programming_language == "python" %}
 ### Python Best Practices
 - Use specific exception types instead of bare `except:`
 - Leverage `logging` module with proper configuration
 - Implement context managers for resource handling
 - Use `traceback` for detailed error information
-{% elif language == "javascript" or language == "typescript" %}
+{% elif programming_language == "javascript" or programming_language == "typescript" %}
 ### JavaScript/TypeScript Best Practices
 - Use proper Promise error handling with `.catch()` or try/catch with async/await
 - Implement Winston or similar structured logging libraries
 - Handle both synchronous and asynchronous errors
 - Use Error objects with meaningful messages
-{% elif language == "java" %}
+{% elif programming_language == "java" %}
 ### Java Best Practices
 - Use specific exception types and custom exceptions
 - Implement SLF4J with Logback for logging
 - Proper resource management with try-with-resources
 - Follow exception handling hierarchies
-{% elif language == "go" %}
+{% elif programming_language == "go" %}
 ### Go Best Practices
 - Follow idiomatic error handling with error returns
 - Use structured logging with logrus or zap

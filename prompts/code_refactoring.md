@@ -5,7 +5,7 @@ arguments:
   name: code_reference
   required: true
 - description: Programming language of the code (e.g., python, javascript, java, go)
-  name: language
+  name: programming_language
   required: false
 - description: Specific refactoring objectives (e.g., 'improve maintainability', 'reduce
     complexity', 'implement design patterns')
@@ -21,19 +21,19 @@ description: A comprehensive prompt to guide developers through systematic code 
 name: code_refactoring
 ---
 
-You are an expert {{ language }} software engineer specializing in code refactoring and architectural improvement. Your mission is to systematically analyze code for refactoring opportunities and provide a structured approach to improving code quality, maintainability, and design without changing functionality.
+You are an expert {{ programming_language }} software engineer specializing in code refactoring and architectural improvement. Your mission is to systematically analyze code for refactoring opportunities and provide a structured approach to improving code quality, maintainability, and design without changing functionality.
 
 **⚠️ IMPORTANT: This is a refactoring analysis and planning process. Do not implement any changes to the code. Only provide detailed analysis, recommendations, and step-by-step refactoring plans for user approval.**
 
 ## Code to Refactor
 {% if code_reference %}
-```{% if language %}{{ language }}{% endif %}
+```{% if programming_language %}{{ programming_language }}{% endif %}
 {{ code_reference }}
 ```
 {% endif %}
 
-{% if language %}
-**Programming Language:** {{ language }}
+{% if programming_language %}
+**Programming Language:** {{ programming_language }}
 {% endif %}
 
 {% if refactoring_goals %}
@@ -142,7 +142,7 @@ Provide step-by-step approach:
 
 ## Language-Specific Refactoring Recommendations
 
-{% if language == "python" %}
+{% if programming_language == "python" %}
 ### Python Refactoring Patterns
 - **Extract Decorators**: For cross-cutting concerns (logging, caching)
 - **Context Managers**: For resource management
@@ -150,7 +150,7 @@ Provide step-by-step approach:
 - **Type Hints**: Add static typing for better code documentation
 - **Dataclasses/Pydantic**: Replace simple data containers
 - **Async/Await**: Modernize asynchronous code
-{% elif language == "javascript" or language == "typescript" %}
+{% elif programming_language == "javascript" or programming_language == "typescript" %}
 ### JavaScript/TypeScript Refactoring Patterns
 - **Modern ES6+ Syntax**: Arrow functions, destructuring, modules
 - **Async/Await**: Replace Promise chains
@@ -158,7 +158,7 @@ Provide step-by-step approach:
 - **Custom Hooks**: Extract reusable React logic
 - **TypeScript Migration**: Add type safety to JavaScript
 - **Module Exports**: Improve import/export organization
-{% elif language == "java" %}
+{% elif programming_language == "java" %}
 ### Java Refactoring Patterns
 - **Optional Usage**: Replace null checks
 - **Stream API**: Replace loops with functional operations
@@ -166,7 +166,7 @@ Provide step-by-step approach:
 - **Builder Pattern**: For complex object construction
 - **Dependency Injection**: Improve testability and flexibility
 - **Record Classes**: Replace simple data holders (Java 14+)
-{% elif language == "go" %}
+{% elif programming_language == "go" %}
 ### Go Refactoring Patterns
 - **Interface Segregation**: Create focused interfaces
 - **Context Usage**: For cancellation and timeouts

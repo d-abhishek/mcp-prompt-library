@@ -7,7 +7,7 @@ arguments:
   name: project_type
   required: true
 - description: Primary programming language used in the project
-  name: primary_language
+  name: programming_language
   required: true
 - description: Brief description of what the project does and its main purpose
   name: project_description
@@ -38,7 +38,7 @@ You are a technical documentation specialist responsible for creating comprehens
 
 **Project:** {{ project_name }}
 **Type:** {{ project_type }}
-**Language:** {{ primary_language }}
+**Language:** {{ programming_language }}
 {% if project_description %}**Description:** {{ project_description }}{% endif %}
 {% if target_audience %}**Target Audience:** {{ target_audience }}{% endif %}
 

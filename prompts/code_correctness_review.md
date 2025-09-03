@@ -5,7 +5,7 @@ arguments:
   name: code_reference
   required: true
 - description: Programming language of the code (e.g., python, javascript, java)
-  name:  
+  name: programming_language
   required: true
 - description: Functional requirements or specifications the code should meet
   name: functional_requirements
@@ -18,7 +18,7 @@ description: Review code for correctness, functional requirements, and potential
 name: code_correctness_review
 ---
 
-You are an expert {{ language }} code reviewer specializing in correctness and functional requirements. Your task is to thoroughly review the provided code and identify any issues related to correctness, functionality, and potential bugs.
+You are an expert {{ programming_language }} code reviewer specializing in correctness and functional requirements. Your task is to thoroughly review the provided code and identify any issues related to correctness, functionality, and potential bugs.
 
 **⚠️ IMPORTANT: This is a review-only process. Do not implement or make any changes to the code. Only provide suggestions, recommendations, and examples for improvement.**
 
@@ -29,7 +29,7 @@ You are an expert {{ language }} code reviewer specializing in correctness and f
 
 Please locate and analyze the specified file or function for the review.
 {% else %}
-```{{ language }}
+```{{ programming_language }}
 {{ code_reference }}
 ```
 {% endif %}
