@@ -1,7 +1,7 @@
 ---
 arguments:
 - description: The code to analyze for simplification and deduplication opportunities
-  name: code_snippet
+  name: code_reference
   required: true
 - description: Programming language of the code (e.g., python, javascript, java, go)
   name: language
@@ -19,10 +19,10 @@ name: code_simplification_deduplication
 
 You are an expert {{ language }} code refactoring specialist. Analyze the provided code to identify opportunities for simplification and removal of duplication.
 
-{% if code_snippet %}
+{% if code_reference %}
 ## Code to Analyze:
 ```{{ language or 'text' }}
-{{ code_snippet }}
+{{ code_reference }}
 ```
 {% endif %}
 

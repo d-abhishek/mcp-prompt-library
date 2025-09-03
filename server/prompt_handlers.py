@@ -71,11 +71,11 @@ def register_prompts(mcp):
         )
     
     @mcp.prompt()
-    def code_simplification_deduplication(code_snippet: str, language: Optional[str] = None, focus_area: Optional[str] = None) -> str:
+    def code_simplification_deduplication(code_reference: str, language: Optional[str] = None, focus_area: Optional[str] = None) -> str:
         """Analyzes code for simplification opportunities and identifies duplicate code patterns that can be refactored into reusable components"""
         template = load_template("code_simplification_deduplication")
         return template.render(
-            code_snippet=code_snippet,
+            code_reference=code_reference,
             language=language,
             focus_area=focus_area
         )
