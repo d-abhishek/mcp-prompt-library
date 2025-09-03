@@ -127,3 +127,14 @@ def register_prompts(mcp):
             test_types=test_types,
             business_context=business_context
         )
+    
+    @mcp.prompt()
+    def code_refactoring(code_reference: str, language: Optional[str] = None, refactoring_goals: Optional[str] = None, current_issues: Optional[str] = None) -> str:
+        """A comprehensive prompt to guide developers through systematic code refactoring, including structural improvements, design pattern implementation, legacy code modernization, and safety-first refactoring practices"""
+        template = load_template("code_refactoring")
+        return template.render(
+            code_reference=code_reference,
+            language=language,
+            refactoring_goals=refactoring_goals,
+            current_issues=current_issues
+        )
