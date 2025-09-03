@@ -79,3 +79,12 @@ def register_prompts(mcp):
             language=language,
             focus_area=focus_area
         )
+    
+    @mcp.prompt()
+    def error_handling_and_logging(code_reference: str, language: Optional[str] = None) -> str:
+        """A comprehensive prompt to guide developers in implementing proper error handling and logging mechanisms in their code, including best practices for exception handling, logging levels, structured logging, and monitoring"""
+        template = load_template("error_handling_and_logging")
+        return template.render(
+            code_reference=code_reference,
+            language=language
+        )
