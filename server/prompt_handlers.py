@@ -116,3 +116,14 @@ def register_prompts(mcp):
             include_architecture=include_architecture,
             deployment_platforms=deployment_platforms
         )
+    
+    @mcp.prompt()
+    def generate_test_scenarios(code_reference: str, programming_language: str, test_types: Optional[str] = None, business_context: Optional[str] = None) -> str:
+        """Generate comprehensive test cases covering scenarios from basic functionality to complex edge cases, organized by difficulty and risk levels"""
+        template = load_template("generate_test_scenarios")
+        return template.render(
+            code_reference=code_reference,
+            programming_language=programming_language,
+            test_types=test_types,
+            business_context=business_context
+        )
