@@ -3,11 +3,11 @@ import os
 
 import aws_cdk as cdk
 
-from cdk.cdk_stack import CdkStack
+from cdk.cdk_stack import McpPrivateApiStack
 
 
 app = cdk.App()
-CdkStack(app, "CdkStack",
+McpPrivateApiStack(app, "McpPrivateApiStack",
     # If you don't specify 'env', this stack will be environment-agnostic.
     # Account/Region-dependent features and context lookups will not work,
     # but a single synthesized template can be deployed anywhere.
