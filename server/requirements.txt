@@ -1,0 +1,9 @@
+# Core framework
+fastmcp
+mangum
+
+# Prompt handling
+python-frontmatter
+jinja2
+PyYAML
+

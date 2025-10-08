@@ -124,11 +124,9 @@ class McpPrivateApiStack(Stack):
 
         lambda_integration = apigw.LambdaIntegration(fn, proxy=True)
 
-        # Proxy all requests to Lambda (FastMCP handles routing)
-        api.root.add_proxy(
-            default_integration=lambda_integration,
-            any_method=True
-        )
+        #Example routes
+        api.root.add_resource("health").add_method("GET", lambda_integration)  # GET /health
+        api.root.add_resource("mcp").add_method("POST", lambda_integration)  # POST /mcp
 
         # ──────────────────────────────────────────────────────────────────────
         # 6) Useful Outputs
