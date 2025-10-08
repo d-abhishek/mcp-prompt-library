@@ -21,7 +21,7 @@ class McpPrivateApiStack(Stack):
         vpc = ec2.Vpc(
             self, 
             "McpVpc",
-            max_azs=2,
+            max_azs=1,
             nat_gateways=0,  # No NAT gateways for cost efficiency and since internet access is not needed
             subnet_configuration=[
                 ec2.SubnetConfiguration(
@@ -124,9 +124,11 @@ class McpPrivateApiStack(Stack):
 
         lambda_integration = apigw.LambdaIntegration(fn, proxy=True)
 
-        #Example routes
-        api.root.add_resource("health").add_method("GET", lambda_integration)  # GET /health
-        api.root.add_resource("mcp").add_method("POST", lambda_integration)  # POST /mcp
+        # Proxy all requests to Lambda (FastMCP handles routing)
+        api.root.add_proxy(
+            default_integration=lambda_integration,
+            any_method=True
+        )
 
         # ──────────────────────────────────────────────────────────────────────
         # 6) Useful Outputs
