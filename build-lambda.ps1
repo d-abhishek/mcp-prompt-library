@@ -3,8 +3,8 @@
 Write-Host "Building Stateless Python Lambda for MCP Streamable HTTP..." -ForegroundColor Green
 
 # Define paths
-$BuildDir = "build-stateless"
-$ZipPath = "mcp-stateless.zip"
+$BuildDir = "build"
+$ZipPath = "mcp-prompt-library.zip"
 
 # Clean previous build
 if (Test-Path $BuildDir) {
