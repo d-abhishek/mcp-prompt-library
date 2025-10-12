@@ -9,8 +9,8 @@ mcp = FastMCP(name="mcp-prompt-library")
 register_tools(mcp)
 register_prompts(mcp)
 
-# 3. Create ASGI app
-asgi_app = mcp.http_app(path="/mcp")
+# 3. Create app (at root path for API Gateway proxy)
+asgi_app = mcp.http_app(path="/")
 
 # 4. Run the MCP server (for local development only)
 if __name__ == "__main__":

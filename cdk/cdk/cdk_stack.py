@@ -3,6 +3,7 @@ from aws_cdk import (
     Duration,
     Stack,
     CfnOutput,
+    Fn,
     aws_apigateway as apigw,
     aws_lambda as _lambda,
     aws_ec2 as ec2,
@@ -46,47 +47,41 @@ class McpPrivateApiStack(Stack):
             description="Security group for API Gateway VPC Endpoint"
         )
         # Allow 443 from VPC CIDR (you can restrict to specific SGs or subnets later)
-        vpce_sg.add_ingress_rule(
-            peer=ec2.Peer.ipv4(vpc.vpc_cidr_block),
-            connection=ec2.Port.tcp(443),
-            description="Allow HTTPS traffic from within the VPC"
-        )
+        # VPC Endpoint and resource policy commented out for public API
+        # Uncomment if you need private API Gateway
+        
+        # vpce_sg.add_ingress_rule(
+        #     peer=ec2.Peer.ipv4(vpc.vpc_cidr_block),
+        #     connection=ec2.Port.tcp(443),
+        #     description="Allow HTTPS traffic from within the VPC"
+        # )
 
-        # ──────────────────────────────────────────────────────────────────────
-        # 2) Interface VPC Endpoint for API Gateway (execute-api)
-        #    IMPORTANT: callers must live in this same VPC (or connected via TGW/peering/DX/VPN)
-        # ──────────────────────────────────────────────────────────────────────
+        # vpce = ec2.InterfaceVpcEndpoint(
+        #     self,
+        #     "McpApiVpcEndpoint",
+        #     vpc=vpc,
+        #     service=ec2.InterfaceVpcEndpointAwsService.APIGATEWAY,
+        #     private_dns_enabled=True,
+        #     security_groups=[vpce_sg],
+        #     subnets=ec2.SubnetSelection(subnet_type=ec2.SubnetType.PUBLIC)
+        # )
 
-        vpce = ec2.InterfaceVpcEndpoint(
-            self,
-            "McpApiVpcEndpoint",
-            vpc=vpc,
-            service=ec2.InterfaceVpcEndpointAwsService.APIGATEWAY,
-            private_dns_enabled=True,
-            security_groups=[vpce_sg],
-            subnets=ec2.SubnetSelection(subnet_type=ec2.SubnetType.PRIVATE_ISOLATED)
-        )
-
-        # ──────────────────────────────────────────────────────────────────────
-        # 3) Lock the API to ONLY this VPC Endpoint via resource policy
-        # ──────────────────────────────────────────────────────────────────────
-        any_principal: iam.IPrincipal = cast(iam.IPrincipal, iam.AnyPrincipal())
-
-        deny_stmt = iam.PolicyStatement(
-            effect=iam.Effect.DENY,
-            actions=["execute-api:Invoke"],
-            principals=[any_principal],  # type: Sequence[iam.IPrincipal]
-            resources=["*"],  # or [api.arn_for_execute_api("*","*","*")] once api exists
-            conditions={"StringNotEquals": {"aws:SourceVpce": vpce.vpc_endpoint_id}},
-        )
-        allow_stmt = iam.PolicyStatement(
-            effect=iam.Effect.ALLOW,
-            actions=["execute-api:Invoke"],
-            principals=[any_principal],
-            resources=["*"],
-            conditions={"StringEquals": {"aws:SourceVpce": vpce.vpc_endpoint_id}},
-        )
-        api_policy = iam.PolicyDocument(statements=[deny_stmt, allow_stmt])
+        # any_principal: iam.IPrincipal = cast(iam.IPrincipal, iam.AnyPrincipal())
+        # deny_stmt = iam.PolicyStatement(
+        #     effect=iam.Effect.DENY,
+        #     actions=["execute-api:Invoke"],
+        #     principals=[any_principal],
+        #     resources=["*"],
+        #     conditions={"StringNotEquals": {"aws:SourceVpce": vpce.vpc_endpoint_id}},
+        # )
+        # allow_stmt = iam.PolicyStatement(
+        #     effect=iam.Effect.ALLOW,
+        #     actions=["execute-api:Invoke"],
+        #     principals=[any_principal],
+        #     resources=["*"],
+        #     conditions={"StringEquals": {"aws:SourceVpce": vpce.vpc_endpoint_id}},
+        # )
+        # api_policy = iam.PolicyDocument(statements=[deny_stmt, allow_stmt])
 
         # ──────────────────────────────────────────────────────────────────────
         # 4) Lambda function (Python 3.12) — uses your prebuilt zip
@@ -97,45 +92,53 @@ class McpPrivateApiStack(Stack):
             "McpLambda",
             runtime=_lambda.Runtime.PYTHON_3_13,
             architecture=_lambda.Architecture.ARM_64,
-            handler="lambda-handler.handler",  # module.function
-            code=_lambda.Code.from_asset("../server/dist/lambda-handler.zip"),
+            handler="stateless_lambda.handler",  # Stateless Python handler
+            code=_lambda.Code.from_asset("../mcp-prompt-library.zip"),
             memory_size=2048,
             timeout=Duration.seconds(29),  # API Gateway max timeout is 29 seconds
-            description="Lambda function running FastMCP ASGI app",
+            description="Stateless Python Lambda for MCP Streamable HTTP",
         )
         
         fn: _lambda.IFunction = cast(_lambda.IFunction, lambda_fn) 
 
         # ──────────────────────────────────────────────────────────────────────
-        # 5) Private REST API Gateway (proxy integration -> Lambda)
+        # 5) Public REST API Gateway (proxy integration -> Lambda)
         # ──────────────────────────────────────────────────────────────────────
         api = apigw.RestApi(
             self,
-            "McpPrivateApi",
-            rest_api_name="mcp-private",
+            "McpPublicApi",
+            rest_api_name="mcp-public",
             endpoint_configuration=apigw.EndpointConfiguration(
-                types=[apigw.EndpointType.PRIVATE],
+                types=[apigw.EndpointType.REGIONAL],  # Changed to PUBLIC
             ),
             deploy_options=apigw.StageOptions(stage_name="prod"),
             cloud_watch_role=True,
-            description="Private API Gateway for FastMCP Lambda",
-            policy=api_policy
+            description="Public API Gateway for FastMCP Lambda"
+            # Removed resource policy - not needed for public endpoint
         )
 
         lambda_integration = apigw.LambdaIntegration(fn, proxy=True)
 
-        #Example routes
-        api.root.add_resource("health").add_method("GET", lambda_integration)  # GET /health
-        api.root.add_resource("mcp").add_method("POST", lambda_integration)  # POST /mcp
+        # Proxy ALL requests to Lambda (let FastMCP handle routing)
+        api.root.add_proxy(
+            default_integration=lambda_integration,
+            any_method=True
+        )
 
         # ──────────────────────────────────────────────────────────────────────
         # 6) Useful Outputs
         # ──────────────────────────────────────────────────────────────────────
         CfnOutput(self, "RestApiId", value=api.rest_api_id)
-        CfnOutput(self, "VpcEndpointId", value=vpce.vpc_endpoint_id)
+        # CfnOutput(self, "VpcEndpointId", value=vpce.vpc_endpoint_id)  # Not needed for public API
         CfnOutput(
             self,
-            "HintInvokeUrlPattern",
-            value="https://{vpce_id}-{hash}.execute-api.{region}.vpce.amazonaws.com/prod/{resource}",
-            description="Invoke URL pattern (replace placeholders accordingly)",
+            "ApiInvokeUrl",
+            value=f"https://{api.rest_api_id}.execute-api.{self.region}.amazonaws.com/prod/",
+            description="Public API Gateway invoke URL - accessible from anywhere",
         )
+        #CfnOutput(
+        #    self,
+        #    "VpcEndpointDns",
+        #    value=Fn.select(0, vpce.vpc_endpoint_dns_entries),
+        #    description="VPC Endpoint DNS name - use this from EC2 in the VPC",
+        #)
