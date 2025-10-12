@@ -1,43 +1,71 @@
+# PowerShell script to build stateless Python Lambda for MCP Streamable HTTP
+
+Write-Host "Building Stateless Python Lambda for MCP Streamable HTTP..." -ForegroundColor Green
+
+# Define paths
+$BuildDir = "build-stateless"
+$ZipPath = "mcp-stateless.zip"
+
 # Clean previous build
-Write-Host "Cleaning build directory..." -ForegroundColor Cyan
-Remove-Item -Recurse -Force .\build\* -ErrorAction SilentlyContinue
-
-# Install dependencies
-Write-Host "Installing dependencies for ARM64 Linux..." -ForegroundColor Cyan
-python -m pip install -r .\server\requirements.txt --target build/ --platform manylinux2014_aarch64 --only-binary=:all:
-
-# Copy application code (flat structure - all .py files at root)
-Write-Host "Copying application code..." -ForegroundColor Cyan
-Copy-Item -Force .\server\server.py .\build\
-Copy-Item -Force .\server\prompt_handlers.py .\build\
-Copy-Item -Force .\server\prompt_tools.py .\build\
-Copy-Item -Force .\server\tools.py .\build\
-
-# Copy lambda handler
-Write-Host "Copying lambda handler..." -ForegroundColor Cyan
-Copy-Item -Force .\lambda-handler.py .\build\
-
-# Copy prompts
-Write-Host "Copying prompts..." -ForegroundColor Cyan
-Copy-Item -Recurse -Force .\prompts .\build\prompts
-
-# Copy data
-Write-Host "Copying data..." -ForegroundColor Cyan
-Copy-Item -Recurse -Force .\data .\build\data
-
-# Create dist directory
-Write-Host "Creating distribution package..." -ForegroundColor Cyan
-New-Item -ItemType Directory -Force -Path .\server\dist | Out-Null
-
-# Create ZIP
-Compress-Archive -Path .\build\* -DestinationPath .\server\dist\lambda-handler.zip -Force
-
-# Show results
-Write-Host "`nBuild complete!" -ForegroundColor Green
-$zipFile = Get-Item .\server\dist\lambda-handler.zip
-Write-Host "ZIP Location: $($zipFile.FullName)" -ForegroundColor Yellow
-Write-Host "ZIP Size: $([math]::Round($zipFile.Length / 1MB, 2)) MB" -ForegroundColor Yellow
-
-if ($zipFile.Length -gt 50MB) {
-    Write-Host "`nWARNING: ZIP is larger than 50 MB. You may need to use Lambda Layers or Container Images." -ForegroundColor Red
+if (Test-Path $BuildDir) {
+    Write-Host "Cleaning previous build directory..." -ForegroundColor Yellow
+    Remove-Item -Recurse -Force $BuildDir
 }
+
+if (Test-Path $ZipPath) {
+    Write-Host "Removing previous ZIP file..." -ForegroundColor Yellow
+    Remove-Item -Force $ZipPath
+}
+
+# Create build directory
+Write-Host "Creating build directory..." -ForegroundColor Blue
+New-Item -ItemType Directory -Path $BuildDir | Out-Null
+
+# Copy Python Lambda handler
+Write-Host "Copying stateless Python Lambda handler..." -ForegroundColor Blue
+Copy-Item "stateless_lambda.py" -Destination $BuildDir
+
+# Create minimal requirements for stateless operation
+Write-Host "Installing minimal Python dependencies for ARM64 Linux..." -ForegroundColor Blue
+$Requirements = "minimal-requirements.txt"
+
+# Only essential dependencies for stateless operation (no FastMCP, no SSE)
+@"
+python-frontmatter>=1.1.0
+jinja2>=3.1.0
+MarkupSafe>=2.0
+PyYAML>=6.0
+"@ | Out-File -FilePath $Requirements -Encoding UTF8
+
+# Install Python packages for ARM64 Linux
+pip install -r $Requirements --platform manylinux2014_aarch64 --only-binary=:all: --target "$BuildDir" --no-deps
+
+# Remove temp requirements
+Remove-Item $Requirements
+
+# Copy prompts and data
+Write-Host "Copying prompts and data..." -ForegroundColor Blue
+if (Test-Path "prompts") {
+    Copy-Item -Recurse "prompts" -Destination $BuildDir
+}
+if (Test-Path "data") {
+    Copy-Item -Recurse "data" -Destination $BuildDir
+}
+
+# Create the ZIP file
+Write-Host "Creating deployment package..." -ForegroundColor Blue
+Compress-Archive -Path "$BuildDir\*" -DestinationPath $ZipPath -Force
+
+# Get ZIP size
+$ZipSize = [math]::Round((Get-Item $ZipPath).Length / 1MB, 2)
+
+# Clean up build directory
+Write-Host "Cleaning up build directory..." -ForegroundColor Yellow
+Remove-Item -Recurse -Force $BuildDir
+
+Write-Host ""
+Write-Host "Build complete!" -ForegroundColor Green
+Write-Host "ZIP Location: $(Resolve-Path $ZipPath)" -ForegroundColor Cyan
+Write-Host "ZIP Size: $ZipSize MB" -ForegroundColor Cyan
+Write-Host ""
+Write-Host "Architecture: Stateless Python Lambda (MCP Streamable HTTP)" -ForegroundColor Magenta
