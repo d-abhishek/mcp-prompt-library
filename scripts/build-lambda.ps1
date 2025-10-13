@@ -23,7 +23,7 @@ New-Item -ItemType Directory -Path $BuildDir | Out-Null
 
 # Copy Simple Python Lambda handler
 Write-Host "Copying Simple Python Lambda handler..." -ForegroundColor Blue
-Copy-Item "lambda_function.py" -Destination "$BuildDir\lambda_function.py"
+Copy-Item "src\lambda_function.py" -Destination "$BuildDir\lambda_function.py"
 
 # Copy Python server modules  
 Write-Host "Copying Python MCP server modules..." -ForegroundColor Blue
