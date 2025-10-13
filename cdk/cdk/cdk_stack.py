@@ -84,19 +84,19 @@ class McpPrivateApiStack(Stack):
         # api_policy = iam.PolicyDocument(statements=[deny_stmt, allow_stmt])
 
         # ──────────────────────────────────────────────────────────────────────
-        # 4) Lambda function (Python 3.12) — uses your prebuilt zip
-        #    The zip should contain handler.py with: handler = Mangum(asgi_app)
+        # 4) Lambda function (Python 3.13) — Python adapter spawning MCP server subprocess
+        #    The zip contains lambda_function.py with subprocess bridge to server module
         # ──────────────────────────────────────────────────────────────────────
         lambda_fn = _lambda.Function(
             self,
             "McpLambda",
             runtime=_lambda.Runtime.PYTHON_3_13,
             architecture=_lambda.Architecture.ARM_64,
-            handler="stateless_lambda.handler",  # Stateless Python handler
+            handler="lambda_function.handler",  # Python handler that spawns server subprocess
             code=_lambda.Code.from_asset("../mcp-prompt-library.zip"),
             memory_size=2048,
             timeout=Duration.seconds(29),  # API Gateway max timeout is 29 seconds
-            description="Stateless Python Lambda for MCP Streamable HTTP",
+            description="Python Lambda adapter for MCP server via subprocess",
         )
         
         fn: _lambda.IFunction = cast(_lambda.IFunction, lambda_fn) 

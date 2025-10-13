@@ -1,6 +1,6 @@
-# PowerShell script to build stateless Python Lambda for MCP Streamable HTTP
+# PowerShell script to build Simple Python Lambda with direct MCP integration
 
-Write-Host "Building Stateless Python Lambda for MCP Streamable HTTP..." -ForegroundColor Green
+Write-Host "Building Simple Python Lambda with direct MCP integration..." -ForegroundColor Green
 
 # Define paths
 $BuildDir = "build"
@@ -21,27 +21,23 @@ if (Test-Path $ZipPath) {
 Write-Host "Creating build directory..." -ForegroundColor Blue
 New-Item -ItemType Directory -Path $BuildDir | Out-Null
 
-# Copy Python Lambda handler
-Write-Host "Copying stateless Python Lambda handler..." -ForegroundColor Blue
-Copy-Item "stateless_lambda.py" -Destination $BuildDir
+# Copy Simple Python Lambda handler
+Write-Host "Copying Simple Python Lambda handler..." -ForegroundColor Blue
+Copy-Item "lambda_function.py" -Destination "$BuildDir\lambda_function.py"
 
-# Create minimal requirements for stateless operation
-Write-Host "Installing minimal Python dependencies for ARM64 Linux..." -ForegroundColor Blue
-$Requirements = "minimal-requirements.txt"
+# Copy Python server modules  
+Write-Host "Copying Python MCP server modules..." -ForegroundColor Blue
+Copy-Item -Recurse "server" -Destination $BuildDir
 
-# Only essential dependencies for stateless operation (no FastMCP, no SSE)
-@"
-python-frontmatter>=1.1.0
-jinja2>=3.1.0
-MarkupSafe>=2.0
-PyYAML>=6.0
-"@ | Out-File -FilePath $Requirements -Encoding UTF8
+# Install only essential Python dependencies for ARM64 Linux
+Write-Host "Installing essential Python dependencies for ARM64 Linux..." -ForegroundColor Blue
 
-# Install Python packages for ARM64 Linux
-pip install -r $Requirements --platform manylinux2014_aarch64 --only-binary=:all: --target "$BuildDir" --no-deps
-
-# Remove temp requirements
-Remove-Item $Requirements
+# Install minimal dependencies needed for our simplified approach
+pip install --platform manylinux2014_aarch64 --only-binary=:all: --target $BuildDir --no-deps --upgrade `
+    "python-frontmatter>=1.1.0" `
+    "jinja2>=3.1.0" `
+    "pyyaml>=6.0" `
+    "MarkupSafe"
 
 # Copy prompts and data
 Write-Host "Copying prompts and data..." -ForegroundColor Blue
@@ -51,6 +47,9 @@ if (Test-Path "prompts") {
 if (Test-Path "data") {
     Copy-Item -Recurse "data" -Destination $BuildDir
 }
+
+# Create __init__.py files to make server a proper Python package
+New-Item -ItemType File -Path "$BuildDir\server\__init__.py" -Force | Out-Null
 
 # Create the ZIP file
 Write-Host "Creating deployment package..." -ForegroundColor Blue
@@ -68,4 +67,6 @@ Write-Host "Build complete!" -ForegroundColor Green
 Write-Host "ZIP Location: $(Resolve-Path $ZipPath)" -ForegroundColor Cyan
 Write-Host "ZIP Size: $ZipSize MB" -ForegroundColor Cyan
 Write-Host ""
-Write-Host "Architecture: Stateless Python Lambda (MCP Streamable HTTP)" -ForegroundColor Magenta
+Write-Host "Architecture: Simple Python Lambda with direct MCP integration" -ForegroundColor Magenta
+Write-Host "Handler: lambda_function.handler" -ForegroundColor Magenta
+Write-Host "Runtime: Python 3.13 with minimal dependencies" -ForegroundColor Magenta
