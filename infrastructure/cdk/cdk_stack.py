@@ -87,55 +87,76 @@ class McpPrivateApiStack(Stack):
         # 4) Lambda function (Python 3.13) — Python adapter spawning MCP server subprocess
         #    The zip contains lambda_function.py with subprocess bridge to server module
         # ──────────────────────────────────────────────────────────────────────
-        lambda_fn = _lambda.Function(
-            self,
-            "McpLambda",
-            runtime=_lambda.Runtime.PYTHON_3_13,
-            architecture=_lambda.Architecture.ARM_64,
-            handler="lambda_function.handler",  # Python handler that spawns server subprocess
-            code=_lambda.Code.from_asset("../mcp-prompt-library.zip"),
+        fn = _lambda.DockerImageFunction(
+            self, "McpLambda",
+            code=_lambda.DockerImageCode.from_image_asset(
+                directory="../",  # repo root (where Dockerfile is; adjust if in /lambda)
+                file="lambda/Dockerfile",
+                build_args={
+                    "BUILD_VERSION": "v4"  # Force rebuild when server code changes
+                }
+            ),
             memory_size=2048,
-            timeout=Duration.seconds(29),  # API Gateway max timeout is 29 seconds
-            description="Python Lambda adapter for MCP server via subprocess",
+            timeout=Duration.seconds(60),  # Function URL supports longer streams; keep sane defaults
+            architecture=_lambda.Architecture.ARM_64,
+            description="FastMCP ASGI via Lambda Web Adapter - Fixed import errors v2",
         )
-        
-        fn: _lambda.IFunction = cast(_lambda.IFunction, lambda_fn) 
+
+        url = fn.add_function_url(
+            auth_type=_lambda.FunctionUrlAuthType.NONE,
+            cors=_lambda.FunctionUrlCorsOptions(
+                allowed_origins=["*"],  # tighten later
+                allowed_methods=[_lambda.HttpMethod.ALL],
+                allowed_headers=["*"]
+            )
+        )
+
+        # Add resource-based policy to allow public access to the function URL
+        # This is required when auth_type is NONE
+        fn.add_permission(
+            "AllowPublicFunctionUrlInvoke",
+            principal=iam.AnyPrincipal(),  # Allow all principals
+            action="lambda:InvokeFunctionUrl",
+            function_url_auth_type=_lambda.FunctionUrlAuthType.NONE
+        )
+
+        CfnOutput(self, "FunctionUrl", value=url.url) 
 
         # ──────────────────────────────────────────────────────────────────────
         # 5) Public REST API Gateway (proxy integration -> Lambda)
         # ──────────────────────────────────────────────────────────────────────
-        api = apigw.RestApi(
-            self,
-            "McpPublicApi",
-            rest_api_name="mcp-public",
-            endpoint_configuration=apigw.EndpointConfiguration(
-                types=[apigw.EndpointType.REGIONAL],  # Changed to PUBLIC
-            ),
-            deploy_options=apigw.StageOptions(stage_name="prod"),
-            cloud_watch_role=True,
-            description="Public API Gateway for FastMCP Lambda"
-            # Removed resource policy - not needed for public endpoint
-        )
+        # api = apigw.RestApi(
+        #     self,
+        #     "McpPublicApi",
+        #     rest_api_name="mcp-public",
+        #     endpoint_configuration=apigw.EndpointConfiguration(
+        #         types=[apigw.EndpointType.REGIONAL],  # Changed to PUBLIC
+        #     ),
+        #     deploy_options=apigw.StageOptions(stage_name="prod"),
+        #     cloud_watch_role=True,
+        #     description="Public API Gateway for FastMCP Lambda"
+        #     # Removed resource policy - not needed for public endpoint
+        # )
 
-        lambda_integration = apigw.LambdaIntegration(fn, proxy=True)
+        # lambda_integration = apigw.LambdaIntegration(fn, proxy=True)
 
-        # Proxy ALL requests to Lambda (let FastMCP handle routing)
-        api.root.add_proxy(
-            default_integration=lambda_integration,
-            any_method=True
-        )
+        # # Proxy ALL requests to Lambda (let FastMCP handle routing)
+        # api.root.add_proxy(
+        #     default_integration=lambda_integration,
+        #     any_method=True
+        # )
 
         # ──────────────────────────────────────────────────────────────────────
         # 6) Useful Outputs
         # ──────────────────────────────────────────────────────────────────────
-        CfnOutput(self, "RestApiId", value=api.rest_api_id)
-        # CfnOutput(self, "VpcEndpointId", value=vpce.vpc_endpoint_id)  # Not needed for public API
-        CfnOutput(
-            self,
-            "ApiInvokeUrl",
-            value=f"https://{api.rest_api_id}.execute-api.{self.region}.amazonaws.com/prod/",
-            description="Public API Gateway invoke URL - accessible from anywhere",
-        )
+        # CfnOutput(self, "RestApiId", value=api.rest_api_id)
+        # # CfnOutput(self, "VpcEndpointId", value=vpce.vpc_endpoint_id)  # Not needed for public API
+        # CfnOutput(
+        #     self,
+        #     "ApiInvokeUrl",
+        #     value=f"https://{api.rest_api_id}.execute-api.{self.region}.amazonaws.com/prod/",
+        #     description="Public API Gateway invoke URL - accessible from anywhere",
+        # )
         #CfnOutput(
         #    self,
         #    "VpcEndpointDns",

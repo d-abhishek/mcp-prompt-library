@@ -1,0 +1,8 @@
+{
+  "name": "mcp-adapter-lambda",
+  "version": "1.0.0",
+  "type": "module",
+  "dependencies": {
+    "@aws/run-mcp-servers-with-aws-lambda": "^0.1.0"
+  }
+}

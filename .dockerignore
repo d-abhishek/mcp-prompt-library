@@ -1,0 +1,12 @@
+# Exclude everything by default
+**
+
+# Allow exactly what the Dockerfile needs:
+!lambda/**
+!server/**
+!prompts/**
+!data/**
+!pyproject.toml
+!uv.lock
+!README.md
+!LICENSE
