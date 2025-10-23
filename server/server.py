@@ -23,7 +23,3 @@ mcp = FastMCP(name="mcp-prompt-library", auth=auth_provider)
 # 2. Register all prompts and tools
 register_tools(mcp)
 register_prompts(mcp)
-
-# 3. Run the MCP server (for local development only)
-if __name__ == "__main__":
-    mcp.run(transport="stdio")
