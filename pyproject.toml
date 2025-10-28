@@ -14,3 +14,24 @@ dependencies = [
     "uvicorn[standard]",
     "python-dotenv",
 ]
+
+[tool.setuptools]
+include-package-data = true
+
+# Only treat 'server' and 'prompts' as Python packages
+[tool.setuptools.packages.find]
+where = ["."]
+include = ["server", "server.*", "prompts", "prompts.*"]
+exclude = ["tests*", "docs*", "data*", "venv*", "build*", "dist*"]
+
+# Ship non-.py files alongside those packages
+[tool.setuptools.package-data]
+prompts = ["*.md", "**/*.md", "*.yaml", "*.yml", "*.json"]
+server  = ["*.md", "**/*.md", "*.yaml", "*.yml", "*.json"]
+
+# OPTIONAL: install your 'data/setup_work_environment' markdowns as data files
+# They will land under: site-packages/mcp_prompt_library_data/setup_work_environment/
+[tool.setuptools.data-files]
+"mcp_prompt_library_data/setup_work_environment" = [
+  "data/setup_work_environment/*.md"
+]
