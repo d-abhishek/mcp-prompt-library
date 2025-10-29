@@ -3,9 +3,7 @@ from __future__ import annotations
 import aws_cdk as cdk
 from aws_cdk import (
     Stack,
-    Duration,
     aws_ec2 as ec2,
-    aws_iam as iam,
 )
 from constructs import Construct
 
@@ -116,109 +114,3 @@ class CdkStack(Stack):
             "TestMcpCurl",
             value=f'curl -i http://{instance.instance_public_dns_name}:8000/mcp',
         )
-
-
-        # repo_url = "https://github.com/d-abhishek/mcp-prompt-library.git"
-        # repo_branch = "ec2-deployment"
-        # instance_type_str = "t3.small"
-
-        # allowed_ip_cidr = "141.70.80.34/32"
-
-        # app = cdk.App.of(self)
-
-        # # ---- Networking / VPC ----
-        # vpc = ec2.Vpc.from_lookup(self, "DefaultVpc", is_default=True)
-
-        # # Security group for the instance
-        # sg = ec2.SecurityGroup(
-        #     self,
-        #     "McpEc2Sg",
-        #     vpc=vpc,
-        #     allow_all_outbound=True,
-        #     description="Security group for MCP EC2",
-        # )
-        # # SSH for admin (from your IP only)
-        # sg.add_ingress_rule(
-        #     ec2.Peer.ipv4(allowed_ip_cidr),
-        #     ec2.Port.tcp(22),
-        #     "SSH from my IP",
-        # )
-        # # App port (8000) for testing (from your IP only)
-        # sg.add_ingress_rule(
-        #     ec2.Peer.ipv4(allowed_ip_cidr),
-        #     ec2.Port.tcp(8000),
-        #     "Uvicorn / MCP from my IP",
-        # )
-
-        # # ---- IAM Role (includes SSM for Session Manager, optional) ----
-        # role = iam.Role(
-        #     self,
-        #     "McpEc2Role",
-        #     assumed_by=iam.ServicePrincipal("ec2.amazonaws.com"),  # type: ignore[arg-type]
-        #     description="Role for MCP instance with SSM",
-        # )
-        # role.add_managed_policy(
-        #     iam.ManagedPolicy.from_aws_managed_policy_name(
-        #         "AmazonSSMManagedInstanceCore"
-        #     )
-        # )
-
-        # # ---- User data (instance bootstrap) ----
-        # user_data = ec2.UserData.for_linux()
-        # user_data.add_commands(
-        #     # System prep
-        #     "set -euxo pipefail",
-        #     "sudo dnf -y update",
-        #     "sudo dnf -y install python3.13 python3-pip git",
-        #     # App dir + venv
-        #     "sudo install -o ec2-user -g ec2-user -d /opt/mcp",
-        #     "cd /opt/mcp",
-        #     "python3 -m venv venv",
-        #     "source venv/bin/activate",
-        #     "python -m pip install --upgrade pip",
-        #     # Clone repo (idempotent: only if not already cloned)
-        #     f'if [ ! -d ".git" ]; then git clone --branch "{repo_branch}" "{repo_url}" repo; fi',
-        #     "mv repo/* repo/.* . 2>/dev/null || true",
-        #     "rmdir repo",
-        #     # Install runtime deps (simple & fast; you can switch to `pip install -e .` if desired)
-        #     "python -m pip install -e .",
-        #     # systemd unit
-        #     "sudo tee /etc/systemd/system/fastmcp.service > /dev/null <<'UNIT'",
-        #     "[Unit]",
-        #     "Description=FastMCP (Uvicorn) - mcp-prompt-library",
-        #     "After=network.target",
-        #     "",
-        #     "[Service]",
-        #     "User=ec2-user",
-        #     "WorkingDirectory=/opt/mcp",
-        #     'Environment="PATH=/opt/mcp/venv/bin"',
-        #     "ExecStart=/opt/mcp/venv/bin/uvicorn server.server:app --app-dir /opt/mcp --host 0.0.0.0 --port 8000 --workers 4",
-        #     "Restart=on-failure",
-        #     "RestartSec=5",
-        #     "",
-        #     "[Install]",
-        #     "WantedBy=multi-user.target",
-        #     "UNIT",
-        #     "systemctl daemon-reload",
-        #     "systemctl enable fastmcp",
-        #     "systemctl restart fastmcp",
-        # )
-
-        # # ---- EC2 instance ----
-        # instance = ec2.Instance(
-        #     self,
-        #     "McpInstance",
-        #     vpc=vpc,
-        #     vpc_subnets=ec2.SubnetSelection(subnet_type=ec2.SubnetType.PUBLIC),
-        #     instance_type=ec2.InstanceType(instance_type_str),
-        #     machine_image=ec2.MachineImage.latest_amazon_linux2023(),
-        #     security_group=sg,
-        #     role=role, # type: ignore
-        #     key_name="mcpPL",
-        #     block_devices=[
-        #         ec2.BlockDevice(
-        #             device_name="/dev/xvda",
-        #             volume=ec2.BlockDeviceVolume.ebs(volume_size=15, encrypted=True),
-        #         )
-        #     ],
-        # )
