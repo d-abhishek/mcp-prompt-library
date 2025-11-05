@@ -31,7 +31,7 @@ auth_provider = AWSCognitoProvider(
     # redirect_path="/auth/callback"         # Default value, customize if needed
 )
 
-mcp = FastMCP(name="mcp-prompt-library", auth=auth_provider)
+mcp = FastMCP(name="mcp-prompt-library")
 
 register_tools(mcp)
 register_prompts(mcp)
