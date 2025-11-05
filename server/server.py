@@ -22,14 +22,14 @@ if ENV_FILE.exists():
 # )
 
 # The AWSCognitoProvider handles JWT validation and user claims
-auth_provider = AWSCognitoProvider(
-    user_pool_id=os.environ["USER_POOL_ID"],   # Your AWS Cognito user pool ID
-    aws_region=os.environ["AWS_REGION"],               # AWS region (defaults to eu-central-1)
-    client_id=os.environ["CLIENT_ID"],          # Your app client ID
-    client_secret=os.environ["CLIENT_SECRET"],  # Your app client Secret
-    base_url=os.environ["BASE_URL"],        # Must match your callback URL
-    # redirect_path="/auth/callback"         # Default value, customize if needed
-)
+# auth_provider = AWSCognitoProvider(
+#     user_pool_id=os.environ["USER_POOL_ID"],   # Your AWS Cognito user pool ID
+#     aws_region=os.environ["AWS_REGION"],               # AWS region (defaults to eu-central-1)
+#     client_id=os.environ["CLIENT_ID"],          # Your app client ID
+#     client_secret=os.environ["CLIENT_SECRET"],  # Your app client Secret
+#     base_url=os.environ["BASE_URL"],        # Must match your callback URL
+#     # redirect_path="/auth/callback"         # Default value, customize if needed
+# )
 
 mcp = FastMCP(name="mcp-prompt-library")
 
