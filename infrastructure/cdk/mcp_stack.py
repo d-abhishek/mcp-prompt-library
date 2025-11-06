@@ -6,6 +6,7 @@ from aws_cdk import (
     aws_ec2 as ec2,
     aws_iam as iam,
     aws_route53 as route53,
+    aws_cognito as cognito,
 )
 from constructs import Construct
 
@@ -34,11 +35,61 @@ class McpCdkStack(Stack):
         repo_branch = "ec2-deployment"
         domain_name = "xl2-mcp.de"
         domain_name_alt = "www.xl2-mcp.de"
+        region = cdk.Stack.of(self).region
 
         # 1) VPC (use default)
         vpc = ec2.Vpc.from_lookup(self, "VPC", is_default=True)
 
-        # 2) Security Group with 80, 443, 22, 8000 open
+        # 2) Cognito User Pool
+        user_pool = cognito.UserPool(
+            self, "McpUserPool",
+            self_sign_up_enabled=True,
+            sign_in_aliases=cognito.SignInAliases(email=True),
+            auto_verify=cognito.AutoVerifiedAttrs(email=True),
+            mfa=cognito.Mfa.OFF,                        
+            password_policy=cognito.PasswordPolicy(
+                min_length=8, require_lowercase=False, require_uppercase=False,
+                require_digits=False, require_symbols=False
+            ),
+            removal_policy=cdk.RemovalPolicy.DESTROY,
+        )
+
+        user_pool_domain = cognito.UserPoolDomain(
+            self, "McpCognitoDomain",
+            user_pool=user_pool,
+            cognito_domain=cognito.CognitoDomainOptions(
+                domain_prefix="xl2-mcp-de"  # unique per region/account
+            ),
+        )
+
+        resource_server = user_pool.add_resource_server(
+            "McpResourceServer",
+            identifier=f"https://{domain_name}/mcp",
+            user_pool_resource_server_name="MCP URL",
+        )
+
+        app_client = user_pool.add_client(
+            "McpWebClient",
+            auth_flows=cognito.AuthFlow(
+                user_srp=True,
+                user_password=True,
+            ),
+            o_auth=cognito.OAuthSettings(
+                flows=cognito.OAuthFlows(
+                    authorization_code_grant=True
+                ),
+                scopes=[
+                    cognito.OAuthScope.OPENID,
+                    cognito.OAuthScope.EMAIL,
+                    cognito.OAuthScope.PROFILE,
+                ],
+                callback_urls=[f"https://{domain_name}/auth/callback"],
+                logout_urls=[f"https://{domain_name}/auth/logout"],
+            ),
+            generate_secret=True,
+        )  
+
+        # 3) Security Group with 80, 443, 22, 8000 open
         sg = ec2.SecurityGroup(self, "McpSg",
             vpc=vpc,
             allow_all_outbound=True,
@@ -83,6 +134,10 @@ class McpCdkStack(Stack):
             actions=["route53:GetChange"],
             resources=["arn:aws:route53:::change/*"],
         ))
+        role.add_to_policy(iam.PolicyStatement(
+            actions=["cognito-idp:DescribeUserPoolClient"],
+            resources=["*"],
+        ))
 
         # 5) EC2 Instance
         user_data = ec2.UserData.for_linux()
@@ -99,6 +154,26 @@ class McpCdkStack(Stack):
             "python3.13 -m venv venv",
             "source venv/bin/activate",
             "python -m pip install --upgrade pip",
+
+            # === Fetch Cognito App Client Secret (may return 'None' if no secret) ===
+            f"CLIENT_SECRET=$(aws cognito-idp describe-user-pool-client "
+            f"  --region {region} "
+            f"  --user-pool-id {user_pool.user_pool_id} "
+            f"  --client-id {app_client.user_pool_client_id} "
+            f"  --query 'UserPoolClient.ClientSecret' --output text 2>/dev/null || true)",
+            # normalize "None" → empty
+            'if [ "$CLIENT_SECRET" = "None" ] || [ "$CLIENT_SECRET" = "null" ]; then CLIENT_SECRET=""; fi',
+
+            # === Write /opt/mcp/.env for the app ===
+            "sudo tee /opt/mcp/.env >/dev/null <<EOF",
+            f"USER_POOL_ID={user_pool.user_pool_id}",
+            f"AWS_REGION={region}",
+            f"CLIENT_ID={app_client.user_pool_client_id}",
+            "CLIENT_SECRET=${CLIENT_SECRET}",
+            f"BASE_URL=https://{domain_name}",
+            "EOF",
+            "sudo chown ec2-user:ec2-user /opt/mcp/.env",
+            "sudo chmod 600 /opt/mcp/.env",
 
             # ===== Clone repo (idempotent) =====
             f'if [ ! -d ".git" ]; then git clone --branch "{repo_branch}" "{repo_url}" repo; fi',
@@ -238,4 +313,12 @@ class McpCdkStack(Stack):
             self,
             "TestMcpCurl",
             value=f'curl -i http://{instance.instance_public_dns_name}:8000/mcp',
+        )
+        cdk.CfnOutput(self, "CognitoUserPoolId", value=user_pool.user_pool_id)
+        cdk.CfnOutput(self, "CognitoClientId", value=app_client.user_pool_client_id)
+        cdk.CfnOutput(self, "CognitoHostedUiBase", value=user_pool_domain.base_url())
+        # Example authorize URL (for testing)
+        cdk.CfnOutput(
+            self, "AuthorizeUrlExample",
+            value=f"{user_pool_domain.base_url()}/oauth2/authorize?client_id={app_client.user_pool_client_id}&response_type=code&scope=openid+email+profile&redirect_uri=https%3A%2F%2F{domain_name}%2Fauth%2Fcallback"
         )
