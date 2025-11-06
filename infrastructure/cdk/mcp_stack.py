@@ -7,6 +7,7 @@ from aws_cdk import (
     aws_iam as iam,
     aws_route53 as route53,
     aws_cognito as cognito,
+    aws_lambda as _lambda,
 )
 from constructs import Construct
 
@@ -36,15 +37,41 @@ class McpCdkStack(Stack):
         domain_name = "xl2-mcp.de"
         domain_name_alt = "www.xl2-mcp.de"
         region = cdk.Stack.of(self).region
+        allowed_domain = "xl2.de"
 
         # 1) VPC (use default)
         vpc = ec2.Vpc.from_lookup(self, "VPC", is_default=True)
+
+        auth_guard = _lambda.Function(
+            self, "EmailDomainGuard",
+            runtime=_lambda.Runtime.PYTHON_3_12,
+            handler="index.handler",
+            timeout=Duration.seconds(5),
+            environment={"ALLOWED_DOMAIN": allowed_domain},
+            code=_lambda.Code.from_inline(
+                # paste the Python above here (no backticks inside CDK)
+                "import os\n"
+                "ALLOWED={d.strip().lower() for d in os.getenv('ALLOWED_DOMAIN','xl2.de').split(',') if d.strip()}\n"
+                "def handler(event,_):\n"
+                "    attrs=(event.get('request') or {}).get('userAttributes') or {}\n"
+                "    email=(attrs.get('email') or '').lower()\n"
+                "    if not email or not any(email.endswith('@'+d) for d in ALLOWED):\n"
+                "        raise Exception('Only users with ' + ', '.join(sorted(ALLOWED)) + ' email addresses are allowed.')\n"
+                "    return event\n"
+            ),
+        )
+
+        # Allow the function to write logs (added automatically, but explicit never hurts)
+        auth_guard.add_to_role_policy(iam.PolicyStatement(
+            actions=["logs:CreateLogGroup","logs:CreateLogStream","logs:PutLogEvents"],
+            resources=["*"]
+        ))
 
         # 2) Cognito User Pool
         user_pool = cognito.UserPool(
             self, "McpUserPool",
             self_sign_up_enabled=True,
-            sign_in_aliases=cognito.SignInAliases(email=True),
+            sign_in_aliases=cognito.SignInAliases(email=True, username=False),
             auto_verify=cognito.AutoVerifiedAttrs(email=True),
             mfa=cognito.Mfa.OFF,                        
             password_policy=cognito.PasswordPolicy(
@@ -54,12 +81,15 @@ class McpCdkStack(Stack):
             removal_policy=cdk.RemovalPolicy.DESTROY,
         )
 
-        user_pool_domain = cognito.UserPoolDomain(
+        # === Attach triggers to the User Pool ===
+        user_pool.add_trigger(cognito.UserPoolOperation.PRE_SIGN_UP, auth_guard) # type: ignore
+        user_pool.add_trigger(cognito.UserPoolOperation.PRE_AUTHENTICATION, auth_guard) # type: ignore
+
+        user_pool_domain = cognito.CfnUserPoolDomain(
             self, "McpCognitoDomain",
-            user_pool=user_pool,
-            cognito_domain=cognito.CognitoDomainOptions(
-                domain_prefix="xl2-mcp-de"  # unique per region/account
-            ),
+            domain="xl2-mcp-de",                  
+            user_pool_id=user_pool.user_pool_id,
+            managed_login_version=2,              
         )
 
         resource_server = user_pool.add_resource_server(
@@ -87,6 +117,13 @@ class McpCdkStack(Stack):
                 logout_urls=[f"https://{domain_name}/auth/logout"],
             ),
             generate_secret=True,
+        )
+
+        cognito.CfnManagedLoginBranding(
+            self, "McpLoginBranding",
+            user_pool_id=user_pool.user_pool_id,
+            use_cognito_provided_values=True,
+            client_id=app_client.user_pool_client_id
         )  
 
         # 3) Security Group with 80, 443, 22, 8000 open
@@ -316,9 +353,3 @@ class McpCdkStack(Stack):
         )
         cdk.CfnOutput(self, "CognitoUserPoolId", value=user_pool.user_pool_id)
         cdk.CfnOutput(self, "CognitoClientId", value=app_client.user_pool_client_id)
-        cdk.CfnOutput(self, "CognitoHostedUiBase", value=user_pool_domain.base_url())
-        # Example authorize URL (for testing)
-        cdk.CfnOutput(
-            self, "AuthorizeUrlExample",
-            value=f"{user_pool_domain.base_url()}/oauth2/authorize?client_id={app_client.user_pool_client_id}&response_type=code&scope=openid+email+profile&redirect_uri=https%3A%2F%2F{domain_name}%2Fauth%2Fcallback"
-        )
