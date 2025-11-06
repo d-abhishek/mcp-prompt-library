@@ -2,8 +2,10 @@ from __future__ import annotations
 
 import aws_cdk as cdk
 from aws_cdk import (
-    Stack,
+    Stack, Duration,
     aws_ec2 as ec2,
+    aws_iam as iam,
+    aws_route53 as route53,
 )
 from constructs import Construct
 
@@ -28,9 +30,15 @@ class McpCdkStack(Stack):
     def __init__(self, scope: Construct, construct_id: str, **kwargs) -> None:
         super().__init__(scope, construct_id, **kwargs)
 
+        repo_url = "https://github.com/d-abhishek/mcp-prompt-library.git"
+        repo_branch = "ec2-deployment"
+        domain_name = "xl2-mcp.de"
+        domain_name_alt = "www.xl2-mcp.de"
 
+        # 1) VPC (use default)
         vpc = ec2.Vpc.from_lookup(self, "VPC", is_default=True)
 
+        # 2) Security Group with 80, 443, 22, 8000 open
         sg = ec2.SecurityGroup(self, "McpSg",
             vpc=vpc,
             allow_all_outbound=True,
@@ -57,17 +65,32 @@ class McpCdkStack(Stack):
             "HTTPS from anywhere",
         )
 
-        repo_url = "https://github.com/d-abhishek/mcp-prompt-library.git"
-        repo_branch = "ec2-deployment"
-        duckdns_token = "0c92a7f8-e769-455c-a157-4eaf2ba646f4"
-        domain_name = "xl2-mcp.duckdns.org"
+        # 3) Hosted zone lookup
+        zone = route53.HostedZone.from_lookup(self, "Zone", domain_name=domain_name)
 
+        # 4) Instance role with Route53 permissions for DNS-01 (dns_aws)
+        role = iam.Role(self, "McpRole", assumed_by=iam.ServicePrincipal("ec2.amazonaws.com")) # type: ignore
+        role.add_managed_policy(iam.ManagedPolicy.from_aws_managed_policy_name("AmazonSSMManagedInstanceCore"))
+        role.add_to_policy(iam.PolicyStatement(
+            actions=["route53:ListHostedZones","route53:ListHostedZonesByName","route53:ListResourceRecordSets"],
+            resources=["*"],
+        ))
+        role.add_to_policy(iam.PolicyStatement(
+            actions=["route53:ChangeResourceRecordSets"],
+            resources=[f"arn:aws:route53:::hostedzone/{zone.hosted_zone_id}"],
+        ))
+        role.add_to_policy(iam.PolicyStatement(
+            actions=["route53:GetChange"],
+            resources=["arn:aws:route53:::change/*"],
+        ))
+
+        # 5) EC2 Instance
         user_data = ec2.UserData.for_linux()
         user_data.add_commands(
             # ===== System prep =====
             "set -euxo pipefail",
             "sudo dnf -y update",
-            "sudo dnf -y install python3.13 python3.13-pip git cronie socat nginx",
+            "sudo dnf -y install python3.13 python3.13-pip git cronie socat nginx awscli",
             "sudo systemctl enable --now crond nginx",
 
             # ===== App dir + venv =====
@@ -106,14 +129,17 @@ class McpCdkStack(Stack):
             "sudo systemctl enable fastmcp",
             "sudo systemctl restart fastmcp",
 
-            # ===== ACME (DNS-01 via DuckDNS) — run as ec2-user, no .bashrc =====
+            # ===== ACME via Route53 (dns_aws) as ec2-user =====
+
             # Install acme.sh for ec2-user and issue cert for your domain
             f"sudo -u ec2-user -i bash -lc 'set -euo pipefail; "
             "curl -fsSL https://get.acme.sh | sh -s email=hhn.thesis@gmail.com; "
             "set +u; . ~/.acme.sh/acme.sh.env; set -u; "
             "~/.acme.sh/acme.sh --set-default-ca --server letsencrypt; "
-            f"echo \"export DuckDNS_Token=\\\"{duckdns_token}\\\"\" >> ~/.acme.sh/account.conf; "
-            f"~/.acme.sh/acme.sh --issue --dns dns_duckdns -d \"{domain_name}\" --dnssleep 300 --debug 2"
+            # # persist the zone id for dns_aws (prevents ambiguity)
+            # f"echo \"export AWS_HOSTED_ZONE_ID=\\\"{zone.hosted_zone_id}\\\"\" >> ~/.acme.sh/account.conf; "
+            # Issue for apex + www (drop the -d for www if you don't need it)
+            f"~/.acme.sh/acme.sh --issue --dns dns_aws -d \"{domain_name}\" -d \"{domain_name_alt}\" --dnssleep 120 --debug 2"
             "'",
 
             # Prepare nginx cert target (owned by ec2-user so renewals can write)
@@ -134,18 +160,17 @@ class McpCdkStack(Stack):
             "sudo tee /etc/nginx/conf.d/mcp.conf >/dev/null <<'EOF'",
             "server {",
             "  listen 80;",
-            f"  server_name {domain_name};",
+            f"  server_name {domain_name} {domain_name_alt};",
             "  return 301 https://$host$request_uri;",
             "}",
             "",
             "server {",
             "  listen 443 ssl http2;",
-            f"  server_name {domain_name};",
+            f"  server_name {domain_name} {domain_name_alt};",
             "",
             f"  ssl_certificate     /etc/nginx/ssl/{domain_name}/fullchain.pem;",
             f"  ssl_certificate_key /etc/nginx/ssl/{domain_name}/privkey.pem;",
             "",
-            "  # (optional) basic TLS hardening",
             "  ssl_protocols TLSv1.2 TLSv1.3;",
             "  ssl_ciphers HIGH:!aNULL:!MD5;",
             "",
@@ -173,6 +198,31 @@ class McpCdkStack(Stack):
             key_name="mcpPL",
             security_group=sg,
             user_data=user_data,
+            role=role, # type: ignore
+        )
+
+        # 6) Elastic IP + association (stable public IP)
+        eip = ec2.CfnEIP(self, "McpEip")
+        ec2.CfnEIPAssociation(
+            self, "McpEipAssoc",
+            eip=eip.ref,
+            instance_id=instance.instance_id,
+        )
+
+        # 7) A records to EIP (root + www)
+        route53.ARecord(
+            self, "RootA",
+            zone=zone,
+            record_name=domain_name,   # apex
+            target=route53.RecordTarget.from_ip_addresses(eip.attr_public_ip),
+            ttl=Duration.minutes(1),
+        )
+        route53.ARecord(
+            self, "WwwA",
+            zone=zone,
+            record_name=f"www.{domain_name}",
+            target=route53.RecordTarget.from_ip_addresses(eip.attr_public_ip),
+            ttl=Duration.minutes(1),
         )
 
         # ---- Outputs ----
