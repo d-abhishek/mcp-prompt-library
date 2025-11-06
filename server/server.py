@@ -4,8 +4,8 @@ from pathlib import Path
 from dotenv import load_dotenv
 
 from fastmcp import FastMCP
-from prompt_handlers import register_prompts
-from prompt_tools import register_tools
+from .prompt_handlers import register_prompts
+from .prompt_tools import register_tools
 
 from fastmcp.server.auth.providers.aws import AWSCognitoProvider
 
