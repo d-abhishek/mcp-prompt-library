@@ -8,6 +8,7 @@ from aws_cdk import (
     aws_route53 as route53,
     aws_cognito as cognito,
     aws_lambda as _lambda,
+    aws_secretsmanager as secretsmanager,
 )
 from constructs import Construct
 
@@ -32,7 +33,8 @@ class McpCdkStack(Stack):
     def __init__(self, scope: Construct, construct_id: str, **kwargs) -> None:
         super().__init__(scope, construct_id, **kwargs)
 
-        repo_url = "https://github.com/d-abhishek/mcp-prompt-library.git"
+        repo_owner = "d-abhishek"
+        repo_name = "mcp-prompt-library"
         repo_branch = "ec2-deployment"
         domain_name = "xl2-mcp.de"
         domain_name_alt = "www.xl2-mcp.de"
@@ -42,6 +44,11 @@ class McpCdkStack(Stack):
         # 1) VPC (use default)
         vpc = ec2.Vpc.from_lookup(self, "VPC", is_default=True)
 
+        git_key_secret = secretsmanager.Secret.from_secret_name_v2(
+            self, "GitDeployKeySecret", "mcp/github-deploy-key"
+        )
+
+        # 2) Lambda Authorizer for Cognito to restrict email domains
         auth_guard = _lambda.Function(
             self, "EmailDomainGuard",
             runtime=_lambda.Runtime.PYTHON_3_12,
@@ -175,6 +182,10 @@ class McpCdkStack(Stack):
             actions=["cognito-idp:DescribeUserPoolClient"],
             resources=["*"],
         ))
+        role.add_to_policy(iam.PolicyStatement(
+            actions=["secretsmanager:GetSecretValue", "secretsmanager:DescribeSecret"],
+            resources=[f"arn:aws:secretsmanager:{self.region}:{self.account}:secret:xl2-mcp/github-deploy-key*"],
+        ))
 
         # 5) EC2 Instance
         user_data = ec2.UserData.for_linux()
@@ -213,9 +224,28 @@ class McpCdkStack(Stack):
             "sudo chmod 600 /opt/mcp/.env",
 
             # ===== Clone repo (idempotent) =====
-            f'if [ ! -d ".git" ]; then git clone --branch "{repo_branch}" "{repo_url}" repo; fi',
-            "mv repo/* repo/.* . 2>/dev/null || true",
-            "rmdir repo",
+            # --- Prepare SSH for ec2-user ---
+            "sudo -u ec2-user mkdir -p /home/ec2-user/.ssh",
+            "sudo chmod 700 /home/ec2-user/.ssh",
+
+            # --- Fetch private deploy key from AWS Secrets Manager ---
+            "aws secretsmanager get-secret-value --secret-id xl2-mcp/github-deploy-key "
+            "--query SecretString --output text > /home/ec2-user/.ssh/id_ed25519",
+            "sudo chown ec2-user:ec2-user /home/ec2-user/.ssh/id_ed25519",
+            "sudo chmod 600 /home/ec2-user/.ssh/id_ed25519",
+
+            # --- Trust GitHub host key (avoids manual confirmation) ---
+            "ssh-keyscan -t ed25519 github.com >> /home/ec2-user/.ssh/known_hosts",
+            "sudo chown ec2-user:ec2-user /home/ec2-user/.ssh/known_hosts",
+            "sudo chmod 644 /home/ec2-user/.ssh/known_hosts",
+
+            # --- Clone repo via SSH (read-only deploy key) ---
+            f"sudo -u ec2-user bash -lc 'cd /opt/mcp && "
+            f"if [ ! -d .git ]; then git clone --branch \"{repo_branch}\" "
+            f"git@github.com:{repo_owner}/{repo_name}.git repo; fi'",
+
+            # --- Move contents and clean up temporary folder ---
+            "sudo -u ec2-user bash -lc 'shopt -s dotglob nullglob; mv /opt/mcp/repo/* /opt/mcp/; rmdir /opt/mcp/repo'",
 
             # ===== Install runtime deps =====
             "python -m pip install -e .",
@@ -251,7 +281,7 @@ class McpCdkStack(Stack):
             # # persist the zone id for dns_aws (prevents ambiguity)
             # f"echo \"export AWS_HOSTED_ZONE_ID=\\\"{zone.hosted_zone_id}\\\"\" >> ~/.acme.sh/account.conf; "
             # Issue for apex + www (drop the -d for www if you don't need it)
-            f"~/.acme.sh/acme.sh --issue --dns dns_aws -d \"{domain_name}\" -d \"{domain_name_alt}\" --dnssleep 120 --debug 2"
+            f"~/.acme.sh/acme.sh --issue --dns dns_aws -d \"{domain_name}\" --dnssleep 120 --debug 2"
             "'",
 
             # Prepare nginx cert target (owned by ec2-user so renewals can write)
@@ -272,13 +302,19 @@ class McpCdkStack(Stack):
             "sudo tee /etc/nginx/conf.d/mcp.conf >/dev/null <<'EOF'",
             "server {",
             "  listen 80;",
-            f"  server_name {domain_name} {domain_name_alt};",
+            f"  server_name www.{domain_name};",
+            f"  return 301 http://{domain_name}$request_uri;",
+            "}",
+            "",
+            "server {",
+            "  listen 80;",
+            f"  server_name {domain_name};",
             "  return 301 https://$host$request_uri;",
             "}",
             "",
             "server {",
             "  listen 443 ssl http2;",
-            f"  server_name {domain_name} {domain_name_alt};",
+            f"  server_name {domain_name};",
             "",
             f"  ssl_certificate     /etc/nginx/ssl/{domain_name}/fullchain.pem;",
             f"  ssl_certificate_key /etc/nginx/ssl/{domain_name}/privkey.pem;",
