@@ -191,3 +191,5 @@ Thumbs.db
 .github/
 *.pem
 mcp-prompt-library.zip
+github_mcp_deploy_key
+github_mcp_deploy_key.pub
