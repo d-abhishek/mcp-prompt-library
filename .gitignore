@@ -189,4 +189,7 @@ Thumbs.db
 *.log
 .pytest_cache/
 .github/
+*.pem
 mcp-prompt-library.zip
+github_mcp_deploy_key
+github_mcp_deploy_key.pub

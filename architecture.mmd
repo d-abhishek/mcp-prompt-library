@@ -1,0 +1,14 @@
+# Architecture
+```mermaid
+flowchart TD
+  VS[VS Code MCP Client] -->|opens authorize| BR[System Browser]
+
+  BR -->|xl2-mcp.duckdns.org| EC2["EC2 (Nginx → FastMCP)"]
+  DDNS["DuckDNS (DNS)"] -. resolves .-> EC2
+
+  EC2 -->|redirect to login| COG["Cognito (Hosted UI)"]
+  COG -->|code to /auth/callback| EC2
+  EC2 -->|token exchange| COG
+  EC2 -->|302 to http://127.0.0.1:port| BR
+  BR --> VS
+```
