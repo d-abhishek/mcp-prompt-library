@@ -221,12 +221,13 @@ def add_to_windows_path(path: pathlib.Path) -> Tuple[bool, str]:
     except Exception as e:
         return False, f"Failed to add to PATH: {str(e)}"
 
-def run_command(command: List[str], check: bool = True) -> Tuple[bool, str, str]:
+def run_command(command: List[str], check: bool = True, timeout: Optional[int] = None) -> Tuple[bool, str, str]:
     """Run a shell command and return success status, stdout, and stderr
     
     Args:
         command: List of command arguments
         check: Whether to raise exception on non-zero exit code
+        timeout: Command timeout in seconds (None for no timeout)
         
     Returns:
         tuple: (success: bool, stdout: str, stderr: str)
@@ -236,9 +237,12 @@ def run_command(command: List[str], check: bool = True) -> Tuple[bool, str, str]
             command,
             capture_output=True,
             text=True,
-            check=check
+            check=check,
+            timeout=timeout
         )
         return True, result.stdout, result.stderr
+    except subprocess.TimeoutExpired as e:
+        return False, e.stdout.decode() if e.stdout else "", f"Command timed out after {timeout} seconds"
     except subprocess.CalledProcessError as e:
         return False, e.stdout, e.stderr
     except Exception as e:
@@ -1425,53 +1429,42 @@ def register_tools(mcp):
                             }
             
             # ==================== RUN FLUTTER DOCTOR ====================
-            # Try to run flutter doctor to verify installation
-            # First check if flutter is in PATH
+            # Skip running flutter doctor automatically - it's better to let user run it in terminal
+            # This avoids blocking and provides better real-time feedback
             flutter_exists, _ = check_command_exists('flutter')
             
-            if not flutter_exists and results['flutter'].get('status') == 'installed':
-                # Flutter was just installed but not in current PATH
-                # Try to run it directly from install location
-                flutter_install_dir = pathlib.Path.home() / "flutter"  # User directory on all platforms
-                flutter_exe = flutter_install_dir / "bin" / "flutter"
-                if system == "Windows":
-                    flutter_exe = flutter_install_dir / "bin" / "flutter.bat"
+            if results['flutter'].get('status') == 'installed':
+                # Flutter was just installed
+                flutter_install_dir = pathlib.Path.home() / "flutter"
+                flutter_bin_path = flutter_install_dir / "bin"
                 
-                if flutter_exe.exists():
-                    print(f"🔍 Attempting to run flutter doctor from {flutter_exe}...")
-                    success, stdout, stderr = run_command([str(flutter_exe), 'doctor', '-v'], check=False)
-                    if success or stdout:
-                        results['flutter_doctor'] = {
-                            'status': 'success',
-                            'message': f'Flutter Doctor output (from {flutter_exe}):\n{stdout}'
-                        }
-                    else:
-                        results['flutter_doctor'] = {
-                            'status': 'failed',
-                            'message': f'Flutter doctor failed: {stderr}\n\nPlease restart your terminal and run "flutter doctor" manually.'
-                        }
-                else:
-                    results['flutter_doctor'] = {
-                        'status': 'skipped',
-                        'message': 'Flutter installed but binary not found. Please restart terminal and run "flutter doctor" manually.'
-                    }
+                results['flutter_doctor'] = {
+                    'status': 'manual_recommended',
+                    'message': (
+                        f'✅ Flutter installed successfully at {flutter_install_dir}\n\n'
+                        f'🔧 IMPORTANT: Complete the setup by running these commands in a NEW terminal:\n\n'
+                        f'1. Close and reopen your terminal (to refresh PATH)\n'
+                        f'2. Run: flutter doctor -v\n'
+                        f'3. Follow any instructions from flutter doctor\n'
+                        f'4. Accept Android licenses: flutter doctor --android-licenses\n\n'
+                        f'💡 TIP: The first flutter command may take 2-3 minutes to complete\n'
+                        f'as it downloads dependencies and sets up the environment.'
+                    )
+                }
             elif flutter_exists:
-                print("🔍 Running flutter doctor to verify installation...")
-                success, stdout, stderr = run_command(['flutter', 'doctor', '-v'], check=False)
-                if success or stdout:
-                    results['flutter_doctor'] = {
-                        'status': 'success',
-                        'message': f'Flutter Doctor output:\n{stdout}'
-                    }
-                else:
-                    results['flutter_doctor'] = {
-                        'status': 'failed',
-                        'message': f'Flutter doctor failed: {stderr}'
-                    }
+                results['flutter_doctor'] = {
+                    'status': 'recommended',
+                    'message': (
+                        '✅ Flutter is available in PATH\n\n'
+                        '🔧 Run these commands to verify your setup:\n'
+                        '1. flutter doctor -v\n'
+                        '2. flutter doctor --android-licenses'
+                    )
+                }
             else:
                 results['flutter_doctor'] = {
                     'status': 'skipped',
-                    'message': 'Flutter not installed or not in PATH. Please install Flutter first.'
+                    'message': 'Flutter not installed. Install Flutter first, then run "flutter doctor -v" to verify.'
                 }
             
             # ==================== GENERATE REPORT ====================
