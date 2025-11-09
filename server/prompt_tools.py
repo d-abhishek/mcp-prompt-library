@@ -6,6 +6,7 @@ import json
 import platform
 import subprocess
 import urllib.request
+import urllib.error
 import zipfile
 import tarfile
 from typing import List, Dict, Any, Optional, Tuple
@@ -92,6 +93,8 @@ def download_and_extract_flutter(archive_path: str, install_dir: pathlib.Path) -
     Returns:
         tuple: (success: bool, message: str)
     """
+    import time
+    
     try:
         base_url = "https://storage.googleapis.com/flutter_infra_release/releases"
         download_url = f"{base_url}/{archive_path}"
@@ -99,23 +102,69 @@ def download_and_extract_flutter(archive_path: str, install_dir: pathlib.Path) -
         # Create parent directory if it doesn't exist
         install_dir.parent.mkdir(parents=True, exist_ok=True)
         
-        # Download the archive
+        # Check if Flutter is already installed
+        if install_dir.exists() and (install_dir / "bin" / "flutter").exists():
+            return True, f"Flutter already exists at {install_dir}. Skipping download."
+        
+        # Download the archive with progress reporting
         temp_zip = install_dir.parent / "flutter_temp.zip"
         
-        urllib.request.urlretrieve(download_url, temp_zip)
+        print(f"📥 Downloading Flutter SDK from {download_url}...")
+        print("⏳ This may take several minutes (200-300 MB download)...")
+        
+        start_time = time.time()
+        
+        # Download with progress callback
+        def reporthook(block_num, block_size, total_size):
+            downloaded = block_num * block_size
+            if total_size > 0:
+                percent = min(100, downloaded * 100 / total_size)
+                mb_downloaded = downloaded / (1024 * 1024)
+                mb_total = total_size / (1024 * 1024)
+                if block_num % 100 == 0:  # Print every 100 blocks to avoid spam
+                    print(f"   Downloaded: {mb_downloaded:.1f} MB / {mb_total:.1f} MB ({percent:.1f}%)")
+        
+        urllib.request.urlretrieve(download_url, temp_zip, reporthook)
+        download_time = time.time() - start_time
+        
+        print(f"✅ Download completed in {download_time:.1f} seconds")
+        
+        # Verify the downloaded file
+        if not temp_zip.exists() or temp_zip.stat().st_size < 1024 * 1024:  # Less than 1 MB is suspicious
+            return False, f"Downloaded file is too small or doesn't exist. Download may have failed."
+        
+        print(f"📦 Extracting Flutter SDK to {install_dir.parent}...")
+        extract_start = time.time()
         
         # Extract the archive
         with zipfile.ZipFile(temp_zip, 'r') as zip_ref:
             # Extract to parent directory (zip contains 'flutter' folder)
             zip_ref.extractall(install_dir.parent)
         
+        extract_time = time.time() - extract_start
+        print(f"✅ Extraction completed in {extract_time:.1f} seconds")
+        
         # Clean up temp file
         temp_zip.unlink()
+        print("🧹 Cleaned up temporary files")
+        
+        # Verify installation
+        flutter_bin = install_dir / "bin" / "flutter"
+        if not flutter_bin.exists() and not (install_dir / "bin" / "flutter.bat").exists():
+            return False, f"Flutter binary not found after extraction. Installation may be incomplete."
         
         return True, f"Flutter SDK downloaded and extracted to {install_dir}"
         
+    except urllib.error.URLError as e:
+        return False, f"Network error downloading Flutter: {str(e)}. Please check your internet connection."
+    except zipfile.BadZipFile as e:
+        return False, f"Downloaded file is corrupted: {str(e)}. Please try again."
+    except PermissionError as e:
+        return False, f"Permission denied: {str(e)}. Try running as administrator or choose a different install directory."
     except Exception as e:
-        return False, f"Failed to download/extract Flutter: {str(e)}"
+        import traceback
+        error_details = traceback.format_exc()
+        return False, f"Failed to download/extract Flutter: {str(e)}\n\nDetails:\n{error_details}"
 
 def add_to_windows_path(path: pathlib.Path) -> Tuple[bool, str]:
     """Add a directory to Windows user PATH environment variable
@@ -1110,10 +1159,14 @@ def register_tools(mcp):
                         flutter_install_dir = pathlib.Path("C:/flutter")
                         flutter_bin_path = flutter_install_dir / "bin"
                         
+                        print("🔍 Fetching Flutter release information...")
+                        
                         # Get latest Flutter release info
                         release_info = get_latest_flutter_release("windows")
                         
                         if release_info and release_info.get('archive'):
+                            print(f"📌 Found Flutter {release_info['version']} (Dart {release_info.get('dart_version', 'unknown')})")
+                            
                             # Attempt automatic download and installation
                             success, message = download_and_extract_flutter(
                                 release_info['archive'],
@@ -1121,32 +1174,55 @@ def register_tools(mcp):
                             )
                             
                             if success:
+                                print("🔧 Adding Flutter to Windows PATH...")
                                 # Add to PATH
                                 path_success, path_message = add_to_windows_path(flutter_bin_path)
                                 
-                                results['flutter'] = {
-                                    'status': 'installed',
-                                    'message': (
-                                        f"Flutter {release_info['version']} installed successfully!\n"
-                                        f"Location: {flutter_install_dir}\n"
-                                        f"{path_message}\n\n"
-                                        f"Next steps:\n"
-                                        f"1. Restart your terminal\n"
-                                        f"2. Run 'flutter doctor' to complete setup\n"
-                                        f"3. Accept Android licenses: 'flutter doctor --android-licenses'"
-                                    )
-                                }
+                                if path_success:
+                                    results['flutter'] = {
+                                        'status': 'installed',
+                                        'message': (
+                                            f"✅ Flutter {release_info['version']} installed successfully!\n\n"
+                                            f"📂 Location: {flutter_install_dir}\n"
+                                            f"🔗 {path_message}\n\n"
+                                            f"⚡ Next steps:\n"
+                                            f"1. Restart your terminal (close and reopen)\n"
+                                            f"2. Run 'flutter doctor' to verify installation\n"
+                                            f"3. Accept Android licenses: 'flutter doctor --android-licenses'\n"
+                                            f"4. You may need to install Android Studio or VS Code extensions"
+                                        )
+                                    }
+                                else:
+                                    results['flutter'] = {
+                                        'status': 'partial_success',
+                                        'message': (
+                                            f"⚠️ Flutter {release_info['version']} downloaded but PATH update failed.\n\n"
+                                            f"📂 Location: {flutter_install_dir}\n"
+                                            f"❌ PATH issue: {path_message}\n\n"
+                                            f"🔧 Manual PATH setup required:\n"
+                                            f"1. Add to System Environment Variables:\n"
+                                            f"   {flutter_bin_path}\n"
+                                            f"2. Restart your terminal\n"
+                                            f"3. Run 'flutter doctor' to verify"
+                                        )
+                                    }
                             else:
                                 # Download failed, provide manual instructions
                                 results['flutter'] = {
                                     'status': 'failed',
                                     'message': (
-                                        f"Automatic installation failed: {message}\n\n"
-                                        f"Please try manual installation:\n"
-                                        f"1. Download from: https://storage.googleapis.com/flutter_infra_release/releases/{release_info['archive']}\n"
-                                        f"2. Extract to: {flutter_install_dir}\n"
-                                        f"3. Add {flutter_bin_path} to your PATH\n\n"
-                                        f"Alternative: Use VS Code Flutter extension or Chocolatey/Scoop"
+                                        f"❌ Automatic installation failed:\n{message}\n\n"
+                                        f"🔄 Alternative installation methods:\n\n"
+                                        f"1. Manual download:\n"
+                                        f"   - Download: https://storage.googleapis.com/flutter_infra_release/releases/{release_info['archive']}\n"
+                                        f"   - Extract to: {flutter_install_dir}\n"
+                                        f"   - Add {flutter_bin_path} to your PATH\n\n"
+                                        f"2. VS Code method:\n"
+                                        f"   - Install Flutter extension\n"
+                                        f"   - Ctrl+Shift+P → 'Flutter: New Project' → 'Download SDK'\n\n"
+                                        f"3. Package manager:\n"
+                                        f"   - Chocolatey: choco install flutter\n"
+                                        f"   - Scoop: scoop install flutter"
                                     )
                                 }
                         else:
@@ -1154,12 +1230,16 @@ def register_tools(mcp):
                             results['flutter'] = {
                                 'status': 'manual_required',
                                 'message': (
-                                    f'Could not fetch Flutter release information.\n\n'
-                                    f'Please install manually:\n'
-                                    f'- VS Code method: Install Flutter extension, then Ctrl+Shift+P → "Flutter: New Project" → "Download SDK"\n'
-                                    f'- Chocolatey: choco install flutter\n'
-                                    f'- Scoop: scoop install flutter\n'
-                                    f'- Direct: https://docs.flutter.dev/get-started/install/windows'
+                                    f'❌ Could not fetch Flutter release information.\n\n'
+                                    f'Please install manually using one of these methods:\n\n'
+                                    f'1. VS Code method (EASIEST):\n'
+                                    f'   - Install Flutter extension\n'
+                                    f'   - Ctrl+Shift+P → "Flutter: New Project" → "Download SDK"\n\n'
+                                    f'2. Package managers:\n'
+                                    f'   - Chocolatey: choco install flutter\n'
+                                    f'   - Scoop: scoop install flutter\n\n'
+                                    f'3. Direct download:\n'
+                                    f'   - https://docs.flutter.dev/get-started/install/windows'
                                 )
                             }
                             
@@ -1343,10 +1423,40 @@ def register_tools(mcp):
                             }
             
             # ==================== RUN FLUTTER DOCTOR ====================
+            # Try to run flutter doctor to verify installation
+            # First check if flutter is in PATH
             flutter_exists, _ = check_command_exists('flutter')
-            if flutter_exists:
-                success, stdout, stderr = run_command(['flutter', 'doctor'], check=False)
-                if success:
+            
+            if not flutter_exists and results['flutter'].get('status') == 'installed':
+                # Flutter was just installed but not in current PATH
+                # Try to run it directly from install location
+                flutter_install_dir = pathlib.Path("C:/flutter") if system == "Windows" else pathlib.Path.home() / "flutter"
+                flutter_exe = flutter_install_dir / "bin" / "flutter"
+                if system == "Windows":
+                    flutter_exe = flutter_install_dir / "bin" / "flutter.bat"
+                
+                if flutter_exe.exists():
+                    print(f"🔍 Attempting to run flutter doctor from {flutter_exe}...")
+                    success, stdout, stderr = run_command([str(flutter_exe), 'doctor', '-v'], check=False)
+                    if success or stdout:
+                        results['flutter_doctor'] = {
+                            'status': 'success',
+                            'message': f'Flutter Doctor output (from {flutter_exe}):\n{stdout}'
+                        }
+                    else:
+                        results['flutter_doctor'] = {
+                            'status': 'failed',
+                            'message': f'Flutter doctor failed: {stderr}\n\nPlease restart your terminal and run "flutter doctor" manually.'
+                        }
+                else:
+                    results['flutter_doctor'] = {
+                        'status': 'skipped',
+                        'message': 'Flutter installed but binary not found. Please restart terminal and run "flutter doctor" manually.'
+                    }
+            elif flutter_exists:
+                print("🔍 Running flutter doctor to verify installation...")
+                success, stdout, stderr = run_command(['flutter', 'doctor', '-v'], check=False)
+                if success or stdout:
                     results['flutter_doctor'] = {
                         'status': 'success',
                         'message': f'Flutter Doctor output:\n{stdout}'
@@ -1359,7 +1469,7 @@ def register_tools(mcp):
             else:
                 results['flutter_doctor'] = {
                     'status': 'skipped',
-                    'message': 'Flutter not installed or not in PATH'
+                    'message': 'Flutter not installed or not in PATH. Please install Flutter first.'
                 }
             
             # ==================== GENERATE REPORT ====================
