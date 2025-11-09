@@ -118,16 +118,6 @@ def register_tools(mcp):
         """
         return prompt_tool.list_prompts(include_content, query)
     
-    @mcp.tool()
-    def smart_prompt_executor(query: str, auto_execute: bool = False) -> str:
-        """Automatically detect and execute the most appropriate prompt for a user query.
-        
-        Args:
-            query: The user's natural language query or request
-            auto_execute: If True, automatically execute the best matching prompt
-        """
-        return prompt_tool.smart_prompt_executor(query, auto_execute)
-    
     # ==================== ENVIRONMENT SETUP TOOLS ====================
     
     @mcp.tool()
