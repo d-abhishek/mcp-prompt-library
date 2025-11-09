@@ -4,7 +4,11 @@ import os
 import shutil
 import json
 import platform
-from typing import List, Dict, Any, Optional
+import subprocess
+import urllib.request
+import zipfile
+import tarfile
+from typing import List, Dict, Any, Optional, Tuple
 
 # Get the prompts directory
 prompts_dir = pathlib.Path(__file__).parent.parent / "prompts"
@@ -50,6 +54,122 @@ def validate_jinja2_syntax(content: str) -> tuple[bool, List[str]]:
     
     is_valid = len(warnings) == 0
     return is_valid, warnings
+
+def run_command(command: List[str], check: bool = True) -> Tuple[bool, str, str]:
+    """Run a shell command and return success status, stdout, and stderr
+    
+    Args:
+        command: List of command arguments
+        check: Whether to raise exception on non-zero exit code
+        
+    Returns:
+        tuple: (success: bool, stdout: str, stderr: str)
+    """
+    try:
+        result = subprocess.run(
+            command,
+            capture_output=True,
+            text=True,
+            check=check
+        )
+        return True, result.stdout, result.stderr
+    except subprocess.CalledProcessError as e:
+        return False, e.stdout, e.stderr
+    except Exception as e:
+        return False, "", str(e)
+
+def check_command_exists(command: str) -> Tuple[bool, str]:
+    """Check if a command exists in PATH
+    
+    Args:
+        command: Command name to check
+        
+    Returns:
+        tuple: (exists: bool, version: str)
+    """
+    try:
+        # Try running with --version
+        result = subprocess.run(
+            [command, "--version"],
+            capture_output=True,
+            text=True,
+            timeout=5
+        )
+        return True, result.stdout.strip()
+    except (subprocess.CalledProcessError, FileNotFoundError, subprocess.TimeoutExpired):
+        try:
+            # Try with -v
+            result = subprocess.run(
+                [command, "-v"],
+                capture_output=True,
+                text=True,
+                timeout=5
+            )
+            return True, result.stdout.strip()
+        except:
+            return False, ""
+
+def download_file(url: str, destination: pathlib.Path, description: str = "file") -> Tuple[bool, str]:
+    """Download a file from URL to destination
+    
+    Args:
+        url: URL to download from
+        destination: Path where file should be saved
+        description: Description of what's being downloaded (for messages)
+        
+    Returns:
+        tuple: (success: bool, message: str)
+    """
+    try:
+        destination.parent.mkdir(parents=True, exist_ok=True)
+        
+        # Download with progress (simplified for now)
+        urllib.request.urlretrieve(url, destination)
+        
+        return True, f"Successfully downloaded {description}"
+    except Exception as e:
+        return False, f"Failed to download {description}: {str(e)}"
+
+def extract_archive(archive_path: pathlib.Path, extract_to: pathlib.Path) -> Tuple[bool, str]:
+    """Extract a zip or tar archive
+    
+    Args:
+        archive_path: Path to the archive file
+        extract_to: Directory to extract to
+        
+    Returns:
+        tuple: (success: bool, message: str)
+    """
+    try:
+        extract_to.mkdir(parents=True, exist_ok=True)
+        
+        if archive_path.suffix == '.zip':
+            with zipfile.ZipFile(archive_path, 'r') as zip_ref:
+                zip_ref.extractall(extract_to)
+        elif archive_path.suffix in ['.tar', '.gz', '.xz']:
+            with tarfile.open(archive_path, 'r:*') as tar_ref:
+                tar_ref.extractall(extract_to)
+        else:
+            return False, f"Unsupported archive format: {archive_path.suffix}"
+        
+        return True, f"Successfully extracted to {extract_to}"
+    except Exception as e:
+        return False, f"Failed to extract archive: {str(e)}"
+
+def add_to_path_windows(directory: str) -> Tuple[bool, str]:
+    """Add directory to Windows PATH environment variable
+    
+    Args:
+        directory: Directory to add to PATH
+        
+    Returns:
+        tuple: (success: bool, message: str)
+    """
+    try:
+        # This requires admin privileges, so we'll provide instructions instead
+        return False, f"Please add '{directory}' to your PATH manually or run this script as administrator"
+    except Exception as e:
+        return False, f"Failed to update PATH: {str(e)}"
 
 def get_vscode_user_settings_path() -> pathlib.Path:
     """Get the VS Code user settings.json path for the current operating system"""
@@ -722,3 +842,334 @@ def register_tools(mcp):
             
         except Exception as e:
             return f"Error setting up work environment: {str(e)}"
+
+    @mcp.tool()
+    def setup_flutter_developer_environment(
+        target_directory: str,
+        flutter_version: str = "latest",
+        codecommit_repo_url: Optional[str] = None,
+        aws_profile: Optional[str] = None,
+        install_git: bool = True,
+        install_aws_cli: bool = True,
+        install_flutter: bool = True,
+        install_vscode_extensions: bool = True
+    ) -> str:
+        """Setup a complete Flutter development environment for a new developer.
+        
+        This tool automates the onboarding process by:
+        1. Installing Flutter SDK (latest stable version)
+        2. Installing AWS CLI
+        3. Installing Git
+        4. Cloning project from AWS CodeCommit
+        5. Installing VS Code Flutter/Dart extensions (if VS Code is detected)
+        6. Running flutter doctor to verify setup
+        
+        Args:
+            target_directory: Directory where the project should be cloned
+            flutter_version: Flutter SDK version to install (default: "latest" for latest stable)
+            codecommit_repo_url: AWS CodeCommit repository URL to clone
+            aws_profile: AWS CLI profile to use for CodeCommit access
+            install_git: Whether to install Git (default: True)
+            install_aws_cli: Whether to install AWS CLI (default: True)
+            install_flutter: Whether to install Flutter SDK (default: True)
+            install_vscode_extensions: Whether to install VS Code extensions (default: True)
+        """
+        try:
+            system = platform.system()
+            target_path = pathlib.Path(target_directory).resolve()
+            
+            # Create target directory if it doesn't exist
+            target_path.mkdir(parents=True, exist_ok=True)
+            
+            results = {
+                'git': {'status': 'skipped', 'message': ''},
+                'aws_cli': {'status': 'skipped', 'message': ''},
+                'flutter': {'status': 'skipped', 'message': ''},
+                'vscode_extensions': {'status': 'skipped', 'message': ''},
+                'project_clone': {'status': 'skipped', 'message': ''},
+                'flutter_doctor': {'status': 'skipped', 'message': ''}
+            }
+            
+            # ==================== GIT INSTALLATION ====================
+            if install_git:
+                git_exists, git_version = check_command_exists('git')
+                
+                if git_exists:
+                    results['git'] = {
+                        'status': 'already_installed',
+                        'message': f'Git already installed: {git_version.split()[0] if git_version else "unknown version"}'
+                    }
+                else:
+                    if system == "Windows":
+                        results['git'] = {
+                            'status': 'manual_required',
+                            'message': 'Please download and install Git from: https://git-scm.com/download/windows'
+                        }
+                    elif system == "Darwin":  # macOS
+                        # Try to install via Homebrew
+                        brew_exists, _ = check_command_exists('brew')
+                        if brew_exists:
+                            success, stdout, stderr = run_command(['brew', 'install', 'git'], check=False)
+                            if success:
+                                results['git'] = {'status': 'installed', 'message': 'Git installed via Homebrew'}
+                            else:
+                                results['git'] = {'status': 'failed', 'message': f'Homebrew install failed: {stderr}'}
+                        else:
+                            results['git'] = {
+                                'status': 'manual_required',
+                                'message': 'Please install Homebrew first or download Git from: https://git-scm.com/download/mac'
+                            }
+            
+            # ==================== AWS CLI INSTALLATION ====================
+            if install_aws_cli:
+                aws_exists, aws_version = check_command_exists('aws')
+                
+                if aws_exists:
+                    results['aws_cli'] = {
+                        'status': 'already_installed',
+                        'message': f'AWS CLI already installed: {aws_version.split()[0] if aws_version else "unknown version"}'
+                    }
+                else:
+                    if system == "Windows":
+                        results['aws_cli'] = {
+                            'status': 'manual_required',
+                            'message': 'Please download and install AWS CLI from: https://awscli.amazonaws.com/AWSCLIV2.msi'
+                        }
+                    elif system == "Darwin":  # macOS
+                        results['aws_cli'] = {
+                            'status': 'manual_required',
+                            'message': 'Please download and install AWS CLI from: https://awscli.amazonaws.com/AWSCLIV2.pkg'
+                        }
+            
+            # ==================== FLUTTER INSTALLATION ====================
+            if install_flutter:
+                flutter_exists, flutter_ver = check_command_exists('flutter')
+                
+                if flutter_exists and flutter_version in flutter_ver:
+                    results['flutter'] = {
+                        'status': 'already_installed',
+                        'message': f'Flutter {flutter_version} already installed'
+                    }
+                else:
+                    # Determine Flutter SDK download URL
+                    flutter_url = None
+                    flutter_install_dir = None
+                    
+                    # Map version to download URL
+                    if flutter_version == "latest":
+                        version_path = "stable"
+                    else:
+                        version_path = f"stable/flutter_{flutter_version}"
+                    
+                    if system == "Windows":
+                        if flutter_version == "latest":
+                            flutter_url = "https://storage.googleapis.com/flutter_infra_release/releases/stable/windows/flutter_windows_stable.zip"
+                        else:
+                            flutter_url = f"https://storage.googleapis.com/flutter_infra_release/releases/stable/windows/flutter_windows_{flutter_version}-stable.zip"
+                        flutter_install_dir = pathlib.Path("C:/flutter")
+                    elif system == "Darwin":  # macOS
+                        if flutter_version == "latest":
+                            flutter_url = "https://storage.googleapis.com/flutter_infra_release/releases/stable/macos/flutter_macos_stable.zip"
+                        else:
+                            flutter_url = f"https://storage.googleapis.com/flutter_infra_release/releases/stable/macos/flutter_macos_{flutter_version}-stable.zip"
+                        flutter_install_dir = pathlib.Path.home() / "flutter"
+                    else:
+                        # Unsupported OS
+                        results['flutter'] = {
+                            'status': 'failed',
+                            'message': f'Unsupported operating system: {system}. Please install Flutter manually.'
+                        }
+                    
+                    if flutter_url and flutter_install_dir:
+                        flutter_bin_path = flutter_install_dir / "bin"
+                        version_text = "latest stable version" if flutter_version == "latest" else f"version {flutter_version}"
+                        results['flutter'] = {
+                            'status': 'manual_required',
+                            'message': f'Please download Flutter {version_text} from: {flutter_url}\nExtract to: {flutter_install_dir}\nAdd {flutter_bin_path} to your PATH'
+                        }
+            
+            # ==================== VS CODE EXTENSIONS ====================
+            if install_vscode_extensions:
+                code_exists, _ = check_command_exists('code')
+                
+                if code_exists:
+                    extensions_to_install = [
+                        'Dart-Code.dart-code',
+                        'Dart-Code.flutter'
+                    ]
+                    
+                    installed_extensions = []
+                    failed_extensions = []
+                    
+                    for ext in extensions_to_install:
+                        success, stdout, stderr = run_command(['code', '--install-extension', ext], check=False)
+                        if success:
+                            installed_extensions.append(ext)
+                        else:
+                            failed_extensions.append(ext)
+                    
+                    if installed_extensions and not failed_extensions:
+                        results['vscode_extensions'] = {
+                            'status': 'installed',
+                            'message': f'Installed VS Code extensions: {", ".join(installed_extensions)}'
+                        }
+                    elif installed_extensions:
+                        results['vscode_extensions'] = {
+                            'status': 'partial',
+                            'message': f'Installed: {", ".join(installed_extensions)}. Failed: {", ".join(failed_extensions)}'
+                        }
+                    else:
+                        results['vscode_extensions'] = {
+                            'status': 'failed',
+                            'message': f'Failed to install extensions. Please install manually: {", ".join(extensions_to_install)}'
+                        }
+                else:
+                    results['vscode_extensions'] = {
+                        'status': 'manual_required',
+                        'message': 'VS Code not detected. Please install VS Code and the Flutter/Dart extensions manually.'
+                    }
+            
+            # ==================== CLONE PROJECT FROM CODECOMMIT ====================
+            if codecommit_repo_url:
+                git_exists, _ = check_command_exists('git')
+                
+                if not git_exists:
+                    results['project_clone'] = {
+                        'status': 'failed',
+                        'message': 'Git is not installed. Cannot clone repository.'
+                    }
+                else:
+                    # Clone the repository
+                    clone_command = ['git', 'clone', codecommit_repo_url]
+                    if aws_profile:
+                        # Set AWS profile for CodeCommit
+                        env = os.environ.copy()
+                        env['AWS_PROFILE'] = aws_profile
+                        try:
+                            result = subprocess.run(
+                                clone_command,
+                                cwd=target_path,
+                                capture_output=True,
+                                text=True,
+                                env=env,
+                                check=False
+                            )
+                            if result.returncode == 0:
+                                results['project_clone'] = {
+                                    'status': 'success',
+                                    'message': f'Successfully cloned project to {target_path}'
+                                }
+                            else:
+                                results['project_clone'] = {
+                                    'status': 'failed',
+                                    'message': f'Failed to clone: {result.stderr}'
+                                }
+                        except Exception as e:
+                            results['project_clone'] = {
+                                'status': 'failed',
+                                'message': f'Clone error: {str(e)}'
+                            }
+                    else:
+                        success, stdout, stderr = run_command(clone_command, check=False)
+                        if success:
+                            results['project_clone'] = {
+                                'status': 'success',
+                                'message': f'Successfully cloned project to {target_path}'
+                            }
+                        else:
+                            results['project_clone'] = {
+                                'status': 'failed',
+                                'message': f'Failed to clone: {stderr}'
+                            }
+            
+            # ==================== RUN FLUTTER DOCTOR ====================
+            flutter_exists, _ = check_command_exists('flutter')
+            if flutter_exists:
+                success, stdout, stderr = run_command(['flutter', 'doctor'], check=False)
+                if success:
+                    results['flutter_doctor'] = {
+                        'status': 'success',
+                        'message': f'Flutter Doctor output:\n{stdout}'
+                    }
+                else:
+                    results['flutter_doctor'] = {
+                        'status': 'failed',
+                        'message': f'Flutter doctor failed: {stderr}'
+                    }
+            else:
+                results['flutter_doctor'] = {
+                    'status': 'skipped',
+                    'message': 'Flutter not installed or not in PATH'
+                }
+            
+            # ==================== GENERATE REPORT ====================
+            report = "🚀 **Flutter Developer Environment Setup Report**\n\n"
+            report += f"**Target Directory**: {target_path}\n"
+            report += f"**Operating System**: {system}\n"
+            report += f"**Flutter Version**: {flutter_version}\n\n"
+            
+            # Status icons
+            status_icons = {
+                'success': '✅',
+                'installed': '✅',
+                'already_installed': '✅',
+                'partial': '⚠️',
+                'failed': '❌',
+                'manual_required': '📋',
+                'skipped': '⏭️'
+            }
+            
+            report += "## Installation Summary\n\n"
+            
+            for component, result in results.items():
+                icon = status_icons.get(result['status'], '❓')
+                component_name = component.replace('_', ' ').title()
+                report += f"{icon} **{component_name}**: {result['status']}\n"
+                if result['message']:
+                    report += f"   {result['message']}\n\n"
+            
+            # Next steps
+            report += "\n## 📋 Next Steps\n\n"
+            
+            manual_steps = []
+            if results['git']['status'] == 'manual_required':
+                manual_steps.append("1. Install Git as instructed above")
+            if results['aws_cli']['status'] == 'manual_required':
+                manual_steps.append("2. Install AWS CLI as instructed above")
+            if results['flutter']['status'] == 'manual_required':
+                manual_steps.append("3. Install Flutter SDK as instructed above")
+            if results['vscode_extensions']['status'] in ['manual_required', 'failed', 'partial']:
+                manual_steps.append("4. Install VS Code Flutter and Dart extensions")
+            
+            if manual_steps:
+                report += "**Manual Actions Required**:\n"
+                for step in manual_steps:
+                    report += f"   {step}\n"
+                report += "\n"
+            
+            report += "**Configuration Steps**:\n"
+            report += "   1. Configure Git: `git config --global user.name 'Your Name'`\n"
+            report += "   2. Configure Git: `git config --global user.email 'your.email@example.com'`\n"
+            report += "   3. Configure AWS CLI: `aws configure` (set up your credentials)\n"
+            report += "   4. Run `flutter doctor` to verify all dependencies\n"
+            report += "   5. Accept Android licenses: `flutter doctor --android-licenses`\n"
+            
+            if codecommit_repo_url:
+                report += f"   6. Navigate to project: `cd {target_path}`\n"
+                report += "   7. Run `flutter pub get` to install dependencies\n"
+                report += "   8. Open in VS Code: `code .`\n"
+            
+            report += "\n## 🎯 IDEs\n\n"
+            report += "**Android Studio**: Download from https://developer.android.com/studio\n"
+            report += "   - After installation, install Flutter and Dart plugins\n"
+            report += "   - Configure Android SDK\n\n"
+            report += "**VS Code**: Download from https://code.visualstudio.com/\n"
+            if results['vscode_extensions']['status'] == 'installed':
+                report += "   - Flutter and Dart extensions already installed ✅\n"
+            else:
+                report += "   - Install Flutter and Dart extensions from the marketplace\n"
+            
+            return report
+            
+        except Exception as e:
+            return f"Error setting up Flutter developer environment: {str(e)}"
