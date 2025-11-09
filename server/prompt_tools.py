@@ -901,10 +901,25 @@ def register_tools(mcp):
                     }
                 else:
                     if system == "Windows":
-                        results['git'] = {
-                            'status': 'manual_required',
-                            'message': 'Please download and install Git from: https://git-scm.com/download/windows'
-                        }
+                        # Try to install via winget (available on Windows 10/11)
+                        winget_exists, _ = check_command_exists('winget')
+                        if winget_exists:
+                            success, stdout, stderr = run_command(['winget', 'install', '--id', 'Git.Git', '-e', '--source', 'winget', '--accept-package-agreements', '--accept-source-agreements'], check=False)
+                            if success:
+                                results['git'] = {
+                                    'status': 'installed',
+                                    'message': 'Git installed via winget. Please restart your terminal or add Git to PATH manually.'
+                                }
+                            else:
+                                results['git'] = {
+                                    'status': 'failed',
+                                    'message': f'Winget install failed: {stderr}. Please download from: https://git-scm.com/download/windows'
+                                }
+                        else:
+                            results['git'] = {
+                                'status': 'manual_required',
+                                'message': 'Winget not found. Please install winget (Windows Package Manager) or download Git from: https://git-scm.com/download/windows'
+                            }
                     elif system == "Darwin":  # macOS
                         # Try to install via Homebrew
                         brew_exists, _ = check_command_exists('brew')
