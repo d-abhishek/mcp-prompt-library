@@ -946,15 +946,39 @@ def register_tools(mcp):
                     }
                 else:
                     if system == "Windows":
-                        results['aws_cli'] = {
-                            'status': 'manual_required',
-                            'message': 'Please download and install AWS CLI from: https://awscli.amazonaws.com/AWSCLIV2.msi'
-                        }
+                        # Try to install via winget
+                        winget_exists, _ = check_command_exists('winget')
+                        if winget_exists:
+                            success, stdout, stderr = run_command(['winget', 'install', '--id', 'Amazon.AWSCLI', '-e', '--source', 'winget', '--accept-package-agreements', '--accept-source-agreements'], check=False)
+                            if success:
+                                results['aws_cli'] = {
+                                    'status': 'installed',
+                                    'message': 'AWS CLI installed via winget. Please restart your terminal or add AWS CLI to PATH manually.'
+                                }
+                            else:
+                                results['aws_cli'] = {
+                                    'status': 'failed',
+                                    'message': f'Winget install failed: {stderr}. Please download from: https://awscli.amazonaws.com/AWSCLIV2.msi'
+                                }
+                        else:
+                            results['aws_cli'] = {
+                                'status': 'manual_required',
+                                'message': 'Winget not found. Please install winget or download AWS CLI from: https://awscli.amazonaws.com/AWSCLIV2.msi'
+                            }
                     elif system == "Darwin":  # macOS
-                        results['aws_cli'] = {
-                            'status': 'manual_required',
-                            'message': 'Please download and install AWS CLI from: https://awscli.amazonaws.com/AWSCLIV2.pkg'
-                        }
+                        # Try to install via Homebrew
+                        brew_exists, _ = check_command_exists('brew')
+                        if brew_exists:
+                            success, stdout, stderr = run_command(['brew', 'install', 'awscli'], check=False)
+                            if success:
+                                results['aws_cli'] = {'status': 'installed', 'message': 'AWS CLI installed via Homebrew'}
+                            else:
+                                results['aws_cli'] = {'status': 'failed', 'message': f'Homebrew install failed: {stderr}'}
+                        else:
+                            results['aws_cli'] = {
+                                'status': 'manual_required',
+                                'message': 'Please install Homebrew first or download AWS CLI from: https://awscli.amazonaws.com/AWSCLIV2.pkg'
+                            }
             
             # ==================== FLUTTER INSTALLATION ====================
             if install_flutter:
