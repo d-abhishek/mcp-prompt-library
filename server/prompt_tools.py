@@ -55,6 +55,121 @@ def validate_jinja2_syntax(content: str) -> tuple[bool, List[str]]:
     is_valid = len(warnings) == 0
     return is_valid, warnings
 
+def get_latest_flutter_release(platform: str = "windows") -> Optional[Dict[str, str]]:
+    """Get the latest stable Flutter release information from Google's API
+    
+    Args:
+        platform: Platform to get release for ("windows", "macos", "linux")
+        
+    Returns:
+        Dict with 'version', 'archive', 'sha256' keys, or None if failed
+    """
+    try:
+        releases_url = f"https://storage.googleapis.com/flutter_infra_release/releases/releases_{platform}.json"
+        with urllib.request.urlopen(releases_url, timeout=10) as response:
+            data = json.loads(response.read().decode())
+            
+        # Find the first stable release
+        for release in data.get('releases', []):
+            if release.get('channel') == 'stable':
+                return {
+                    'version': release.get('version'),
+                    'archive': release.get('archive'),
+                    'sha256': release.get('sha256'),
+                    'dart_version': release.get('dart_sdk_version')
+                }
+        return None
+    except Exception as e:
+        return None
+
+def download_and_extract_flutter(archive_path: str, install_dir: pathlib.Path) -> Tuple[bool, str]:
+    """Download and extract Flutter SDK
+    
+    Args:
+        archive_path: Path to the archive on Google's storage (e.g., "stable/windows/flutter_windows_3.35.7-stable.zip")
+        install_dir: Directory to install Flutter to (e.g., C:/flutter)
+        
+    Returns:
+        tuple: (success: bool, message: str)
+    """
+    try:
+        base_url = "https://storage.googleapis.com/flutter_infra_release/releases"
+        download_url = f"{base_url}/{archive_path}"
+        
+        # Create parent directory if it doesn't exist
+        install_dir.parent.mkdir(parents=True, exist_ok=True)
+        
+        # Download the archive
+        temp_zip = install_dir.parent / "flutter_temp.zip"
+        
+        urllib.request.urlretrieve(download_url, temp_zip)
+        
+        # Extract the archive
+        with zipfile.ZipFile(temp_zip, 'r') as zip_ref:
+            # Extract to parent directory (zip contains 'flutter' folder)
+            zip_ref.extractall(install_dir.parent)
+        
+        # Clean up temp file
+        temp_zip.unlink()
+        
+        return True, f"Flutter SDK downloaded and extracted to {install_dir}"
+        
+    except Exception as e:
+        return False, f"Failed to download/extract Flutter: {str(e)}"
+
+def add_to_windows_path(path: pathlib.Path) -> Tuple[bool, str]:
+    """Add a directory to Windows user PATH environment variable
+    
+    Args:
+        path: Path to add to PATH
+        
+    Returns:
+        tuple: (success: bool, message: str)
+    """
+    try:
+        import winreg
+        
+        # Open user environment variables key
+        key = winreg.OpenKey(
+            winreg.HKEY_CURRENT_USER,
+            r'Environment',
+            0,
+            winreg.KEY_READ | winreg.KEY_WRITE
+        )
+        
+        try:
+            # Get current PATH
+            current_path, _ = winreg.QueryValueEx(key, 'Path')
+        except FileNotFoundError:
+            current_path = ''
+        
+        # Check if path already in PATH
+        path_str = str(path)
+        if path_str.lower() in current_path.lower():
+            winreg.CloseKey(key)
+            return True, f"{path} already in PATH"
+        
+        # Add to PATH
+        new_path = f"{current_path};{path_str}" if current_path else path_str
+        winreg.SetValueEx(key, 'Path', 0, winreg.REG_EXPAND_SZ, new_path)
+        winreg.CloseKey(key)
+        
+        # Broadcast WM_SETTINGCHANGE to notify system of environment change
+        import ctypes
+        HWND_BROADCAST = 0xFFFF
+        WM_SETTINGCHANGE = 0x001A
+        SMTO_ABORTIFHUNG = 0x0002
+        result = ctypes.c_long()
+        ctypes.windll.user32.SendMessageTimeoutW(
+            HWND_BROADCAST, WM_SETTINGCHANGE, 0, 'Environment',
+            SMTO_ABORTIFHUNG, 5000, ctypes.byref(result)
+        )
+        
+        return True, f"Added {path} to PATH. Please restart your terminal."
+        
+    except Exception as e:
+        return False, f"Failed to add to PATH: {str(e)}"
+
 def run_command(command: List[str], check: bool = True) -> Tuple[bool, str, str]:
     """Run a shell command and return success status, stdout, and stderr
     
@@ -984,47 +1099,153 @@ def register_tools(mcp):
             if install_flutter:
                 flutter_exists, flutter_ver = check_command_exists('flutter')
                 
-                if flutter_exists and flutter_version in flutter_ver:
+                if flutter_exists:
                     results['flutter'] = {
                         'status': 'already_installed',
-                        'message': f'Flutter {flutter_version} already installed'
+                        'message': f'Flutter already installed: {flutter_ver.split()[0] if flutter_ver else "unknown version"}'
                     }
                 else:
-                    # Determine Flutter SDK download URL
-                    flutter_url = None
-                    flutter_install_dir = None
-                    
-                    # Map version to download URL
-                    if flutter_version == "latest":
-                        version_path = "stable"
-                    else:
-                        version_path = f"stable/flutter_{flutter_version}"
-                    
                     if system == "Windows":
-                        if flutter_version == "latest":
-                            flutter_url = "https://storage.googleapis.com/flutter_infra_release/releases/stable/windows/flutter_windows_stable.zip"
-                        else:
-                            flutter_url = f"https://storage.googleapis.com/flutter_infra_release/releases/stable/windows/flutter_windows_{flutter_version}-stable.zip"
+                        # Try to automatically download and install Flutter
                         flutter_install_dir = pathlib.Path("C:/flutter")
-                    elif system == "Darwin":  # macOS
-                        if flutter_version == "latest":
-                            flutter_url = "https://storage.googleapis.com/flutter_infra_release/releases/stable/macos/flutter_macos_stable.zip"
+                        flutter_bin_path = flutter_install_dir / "bin"
+                        
+                        # Get latest Flutter release info
+                        release_info = get_latest_flutter_release("windows")
+                        
+                        if release_info and release_info.get('archive'):
+                            # Attempt automatic download and installation
+                            success, message = download_and_extract_flutter(
+                                release_info['archive'],
+                                flutter_install_dir
+                            )
+                            
+                            if success:
+                                # Add to PATH
+                                path_success, path_message = add_to_windows_path(flutter_bin_path)
+                                
+                                results['flutter'] = {
+                                    'status': 'installed',
+                                    'message': (
+                                        f"Flutter {release_info['version']} installed successfully!\n"
+                                        f"Location: {flutter_install_dir}\n"
+                                        f"{path_message}\n\n"
+                                        f"Next steps:\n"
+                                        f"1. Restart your terminal\n"
+                                        f"2. Run 'flutter doctor' to complete setup\n"
+                                        f"3. Accept Android licenses: 'flutter doctor --android-licenses'"
+                                    )
+                                }
+                            else:
+                                # Download failed, provide manual instructions
+                                results['flutter'] = {
+                                    'status': 'failed',
+                                    'message': (
+                                        f"Automatic installation failed: {message}\n\n"
+                                        f"Please try manual installation:\n"
+                                        f"1. Download from: https://storage.googleapis.com/flutter_infra_release/releases/{release_info['archive']}\n"
+                                        f"2. Extract to: {flutter_install_dir}\n"
+                                        f"3. Add {flutter_bin_path} to your PATH\n\n"
+                                        f"Alternative: Use VS Code Flutter extension or Chocolatey/Scoop"
+                                    )
+                                }
                         else:
-                            flutter_url = f"https://storage.googleapis.com/flutter_infra_release/releases/stable/macos/flutter_macos_{flutter_version}-stable.zip"
-                        flutter_install_dir = pathlib.Path.home() / "flutter"
+                            # Couldn't get release info, provide manual instructions
+                            results['flutter'] = {
+                                'status': 'manual_required',
+                                'message': (
+                                    f'Could not fetch Flutter release information.\n\n'
+                                    f'Please install manually:\n'
+                                    f'- VS Code method: Install Flutter extension, then Ctrl+Shift+P → "Flutter: New Project" → "Download SDK"\n'
+                                    f'- Chocolatey: choco install flutter\n'
+                                    f'- Scoop: scoop install flutter\n'
+                                    f'- Direct: https://docs.flutter.dev/get-started/install/windows'
+                                )
+                            }
+                            
+                    elif system == "Darwin":  # macOS
+                        # Try to install via Homebrew first
+                        brew_exists, _ = check_command_exists('brew')
+                        if brew_exists:
+                            success, stdout, stderr = run_command(['brew', 'install', '--cask', 'flutter'], check=False)
+                            if success:
+                                results['flutter'] = {
+                                    'status': 'installed',
+                                    'message': 'Flutter installed via Homebrew. Please run "flutter doctor" to complete setup.'
+                                }
+                            else:
+                                # Homebrew failed, try automatic download
+                                flutter_install_dir = pathlib.Path.home() / "flutter"
+                                flutter_bin_path = flutter_install_dir / "bin"
+                                
+                                release_info = get_latest_flutter_release("macos")
+                                
+                                if release_info and release_info.get('archive'):
+                                    download_success, download_message = download_and_extract_flutter(
+                                        release_info['archive'],
+                                        flutter_install_dir
+                                    )
+                                    
+                                    if download_success:
+                                        results['flutter'] = {
+                                            'status': 'installed',
+                                            'message': (
+                                                f"Flutter {release_info['version']} installed!\n"
+                                                f"Location: {flutter_install_dir}\n\n"
+                                                f"Add to your shell profile (~/.zshrc or ~/.bash_profile):\n"
+                                                f"export PATH=\"$PATH:{flutter_bin_path}\"\n\n"
+                                                f"Then restart terminal and run 'flutter doctor'"
+                                            )
+                                        }
+                                    else:
+                                        results['flutter'] = {
+                                            'status': 'failed',
+                                            'message': f'Homebrew and automatic download failed. {download_message}'
+                                        }
+                                else:
+                                    results['flutter'] = {
+                                        'status': 'manual_required',
+                                        'message': 'Homebrew install failed. Please use VS Code Flutter extension or download manually from https://docs.flutter.dev/get-started/install/macos'
+                                    }
+                        else:
+                            # No Homebrew, try automatic download
+                            flutter_install_dir = pathlib.Path.home() / "flutter"
+                            flutter_bin_path = flutter_install_dir / "bin"
+                            
+                            release_info = get_latest_flutter_release("macos")
+                            
+                            if release_info and release_info.get('archive'):
+                                success, message = download_and_extract_flutter(
+                                    release_info['archive'],
+                                    flutter_install_dir
+                                )
+                                
+                                if success:
+                                    results['flutter'] = {
+                                        'status': 'installed',
+                                        'message': (
+                                            f"Flutter {release_info['version']} installed!\n"
+                                            f"Location: {flutter_install_dir}\n\n"
+                                            f"Add to your shell profile (~/.zshrc or ~/.bash_profile):\n"
+                                            f"export PATH=\"$PATH:{flutter_bin_path}\"\n\n"
+                                            f"Then restart terminal and run 'flutter doctor'"
+                                        )
+                                    }
+                                else:
+                                    results['flutter'] = {
+                                        'status': 'failed',
+                                        'message': f'Automatic installation failed: {message}'
+                                    }
+                            else:
+                                results['flutter'] = {
+                                    'status': 'manual_required',
+                                    'message': 'Please install Homebrew or use VS Code Flutter extension for automatic installation'
+                                }
                     else:
                         # Unsupported OS
                         results['flutter'] = {
                             'status': 'failed',
                             'message': f'Unsupported operating system: {system}. Please install Flutter manually.'
-                        }
-                    
-                    if flutter_url and flutter_install_dir:
-                        flutter_bin_path = flutter_install_dir / "bin"
-                        version_text = "latest stable version" if flutter_version == "latest" else f"version {flutter_version}"
-                        results['flutter'] = {
-                            'status': 'manual_required',
-                            'message': f'Please download Flutter {version_text} from: {flutter_url}\nExtract to: {flutter_install_dir}\nAdd {flutter_bin_path} to your PATH'
                         }
             
             # ==================== VS CODE EXTENSIONS ====================
