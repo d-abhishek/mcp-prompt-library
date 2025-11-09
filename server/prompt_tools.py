@@ -94,20 +94,19 @@ def download_and_extract_flutter(archive_path: str, install_dir: pathlib.Path) -
         tuple: (success: bool, message: str)
     """
     import time
+    import tempfile
     
     try:
         base_url = "https://storage.googleapis.com/flutter_infra_release/releases"
         download_url = f"{base_url}/{archive_path}"
         
-        # Create parent directory if it doesn't exist
-        install_dir.parent.mkdir(parents=True, exist_ok=True)
-        
         # Check if Flutter is already installed
         if install_dir.exists() and (install_dir / "bin" / "flutter").exists():
             return True, f"Flutter already exists at {install_dir}. Skipping download."
         
-        # Download the archive with progress reporting
-        temp_zip = install_dir.parent / "flutter_temp.zip"
+        # Use system temp directory for download (user-accessible, no admin needed)
+        temp_dir = pathlib.Path(tempfile.gettempdir())
+        temp_zip = temp_dir / "flutter_download_temp.zip"
         
         print(f"📥 Downloading Flutter SDK from {download_url}...")
         print("⏳ This may take several minutes (200-300 MB download)...")
@@ -132,6 +131,9 @@ def download_and_extract_flutter(archive_path: str, install_dir: pathlib.Path) -
         # Verify the downloaded file
         if not temp_zip.exists() or temp_zip.stat().st_size < 1024 * 1024:  # Less than 1 MB is suspicious
             return False, f"Downloaded file is too small or doesn't exist. Download may have failed."
+        
+        # Create the parent directory if it doesn't exist (with proper permissions)
+        install_dir.parent.mkdir(parents=True, exist_ok=True)
         
         print(f"📦 Extracting Flutter SDK to {install_dir.parent}...")
         extract_start = time.time()
@@ -1155,8 +1157,8 @@ def register_tools(mcp):
                     }
                 else:
                     if system == "Windows":
-                        # Try to automatically download and install Flutter
-                        flutter_install_dir = pathlib.Path("C:/flutter")
+                        # Use user's home directory to avoid permission issues (no admin needed)
+                        flutter_install_dir = pathlib.Path.home() / "flutter"
                         flutter_bin_path = flutter_install_dir / "bin"
                         
                         print("🔍 Fetching Flutter release information...")
@@ -1430,7 +1432,7 @@ def register_tools(mcp):
             if not flutter_exists and results['flutter'].get('status') == 'installed':
                 # Flutter was just installed but not in current PATH
                 # Try to run it directly from install location
-                flutter_install_dir = pathlib.Path("C:/flutter") if system == "Windows" else pathlib.Path.home() / "flutter"
+                flutter_install_dir = pathlib.Path.home() / "flutter"  # User directory on all platforms
                 flutter_exe = flutter_install_dir / "bin" / "flutter"
                 if system == "Windows":
                     flutter_exe = flutter_install_dir / "bin" / "flutter.bat"
