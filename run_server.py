@@ -1,6 +1,8 @@
 """
 Simple runner script for the MCP server.
 This avoids relative import issues when using fastmcp.
+
+Use - fastmcp run run_server.py --transport http --port 8000
 """
 import sys
 from pathlib import Path
