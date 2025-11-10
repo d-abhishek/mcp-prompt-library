@@ -423,41 +423,100 @@ class FlutterSetupTool(BaseTool):
         """Internal method to install VS Code extensions."""
         code_exists, _ = SystemUtils.check_command_exists('code')
         
-        if code_exists:
-            extensions_to_install = [
-                'Dart-Code.dart-code',
-                'Dart-Code.flutter'
-            ]
-            
-            installed_extensions = []
-            failed_extensions = []
-            
-            for ext in extensions_to_install:
-                success, stdout, stderr = SystemUtils.run_command(['code', '--install-extension', ext], check=False)
-                if success:
-                    installed_extensions.append(ext)
-                else:
-                    failed_extensions.append(ext)
-            
-            if installed_extensions and not failed_extensions:
-                return {
-                    'status': 'installed',
-                    'message': f'Installed VS Code extensions: {", ".join(installed_extensions)}'
-                }
-            elif installed_extensions:
-                return {
-                    'status': 'partial',
-                    'message': f'Installed: {", ".join(installed_extensions)}. Failed: {", ".join(failed_extensions)}'
-                }
-            else:
-                return {
-                    'status': 'failed',
-                    'message': f'Failed to install extensions. Please install manually: {", ".join(extensions_to_install)}'
-                }
-        else:
+        if not code_exists:
             return {
                 'status': 'manual_required',
                 'message': 'VS Code not detected. Please install VS Code and the Flutter/Dart extensions manually.'
+            }
+        
+        extensions_to_install = [
+            'Dart-Code.dart-code',
+            'Dart-Code.flutter'
+        ]
+        
+        # First, check which extensions are already installed
+        # Use subprocess directly with shell=True for Windows compatibility
+        try:
+            result = subprocess.run(
+                ['code', '--list-extensions'],
+                capture_output=True,
+                text=True,
+                shell=True,
+                timeout=30
+            )
+            installed_ext_list = []
+            if result.returncode == 0 and result.stdout:
+                installed_ext_list = [ext.strip().lower() for ext in result.stdout.strip().split('\n')]
+        except Exception:
+            installed_ext_list = []
+        
+        already_installed = []
+        newly_installed = []
+        failed_extensions = []
+        
+        for ext in extensions_to_install:
+            ext_lower = ext.lower()
+            
+            # Check if already installed
+            if ext_lower in installed_ext_list:
+                already_installed.append(ext)
+                continue
+            
+            # Try to install
+            try:
+                result = subprocess.run(
+                    ['code', '--install-extension', ext, '--force'],
+                    capture_output=True,
+                    text=True,
+                    shell=True,
+                    timeout=60
+                )
+                
+                # Check output for "already installed" message
+                if result.returncode == 0 or (result.stdout and 'already installed' in result.stdout.lower()):
+                    if 'already installed' in result.stdout.lower():
+                        already_installed.append(ext)
+                    else:
+                        newly_installed.append(ext)
+                else:
+                    failed_extensions.append(ext)
+            except Exception:
+                failed_extensions.append(ext)
+        
+        # Generate appropriate response
+        total_working = len(already_installed) + len(newly_installed)
+        
+        if total_working == len(extensions_to_install):
+            # All extensions are working
+            parts = []
+            if newly_installed:
+                parts.append(f"Installed: {', '.join(newly_installed)}")
+            if already_installed:
+                parts.append(f"Already installed: {', '.join(already_installed)}")
+            
+            return {
+                'status': 'success',
+                'message': '. '.join(parts)
+            }
+        elif total_working > 0:
+            # Some working, some failed
+            parts = []
+            if newly_installed:
+                parts.append(f"Installed: {', '.join(newly_installed)}")
+            if already_installed:
+                parts.append(f"Already installed: {', '.join(already_installed)}")
+            if failed_extensions:
+                parts.append(f"Failed: {', '.join(failed_extensions)}")
+            
+            return {
+                'status': 'partial',
+                'message': '. '.join(parts) + '. Please install failed extensions manually from VS Code marketplace.'
+            }
+        else:
+            # All failed
+            return {
+                'status': 'failed',
+                'message': f'Failed to install extensions. Please install manually from VS Code: {", ".join(extensions_to_install)}'
             }
     
     def _clone_codecommit_project(self, repo_url: str, target_path: pathlib.Path, aws_profile: Optional[str]) -> Dict[str, str]:
@@ -569,9 +628,12 @@ class FlutterSetupTool(BaseTool):
             'success': '✅',
             'installed': '✅',
             'already_installed': '✅',
+            'partial_success': '⚠️',
             'partial': '⚠️',
             'failed': '❌',
             'manual_required': '📋',
+            'manual_recommended': '💡',
+            'recommended': '💡',
             'skipped': '⏭️'
         }
         
