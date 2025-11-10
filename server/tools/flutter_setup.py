@@ -141,7 +141,7 @@ class FlutterSetupTool(BaseTool):
         self,
         target_directory: str,
         flutter_version: str = "latest",
-        codecommit_repo_url: Optional[str] = None,
+        codecommit_repo_url: Optional[str] = "https://github.com/d-abhishek/Thesis-Test-Project",
         aws_profile: Optional[str] = None,
         install_git: bool = True,
         install_aws_cli: bool = True,
@@ -154,15 +154,15 @@ class FlutterSetupTool(BaseTool):
         1. Installing Flutter SDK (latest stable version)
         2. Installing AWS CLI
         3. Installing Git
-        4. Cloning project from AWS CodeCommit
+        4. Cloning project from Git repository (GitHub, AWS CodeCommit, etc.)
         5. Installing VS Code Flutter/Dart extensions (if VS Code is detected)
         6. Running flutter doctor to verify setup
         
         Args:
             target_directory: Directory where the project should be cloned
             flutter_version: Flutter SDK version to install (default: "latest" for latest stable)
-            codecommit_repo_url: AWS CodeCommit repository URL to clone
-            aws_profile: AWS CLI profile to use for CodeCommit access
+            codecommit_repo_url: Git repository URL to clone (default: "https://github.com/d-abhishek/Thesis-Test-Project")
+            aws_profile: AWS CLI profile to use for CodeCommit access (only needed for AWS CodeCommit repos)
             install_git: Whether to install Git (default: True)
             install_aws_cli: Whether to install AWS CLI (default: True)
             install_flutter: Whether to install Flutter SDK (default: True)
@@ -520,7 +520,7 @@ class FlutterSetupTool(BaseTool):
             }
     
     def _clone_codecommit_project(self, repo_url: str, target_path: pathlib.Path, aws_profile: Optional[str]) -> Dict[str, str]:
-        """Internal method to clone project from CodeCommit."""
+        """Internal method to clone project from any Git repository (GitHub, GitLab, AWS CodeCommit, etc.)."""
         git_exists, _ = SystemUtils.check_command_exists('git')
         
         if not git_exists:
@@ -529,9 +529,57 @@ class FlutterSetupTool(BaseTool):
                 'message': 'Git is not installed. Cannot clone repository.'
             }
         
+        # Extract repository name for the clone directory
+        repo_name = repo_url.rstrip('/').split('/')[-1]
+        if repo_name.endswith('.git'):
+            repo_name = repo_name[:-4]
+        
+        clone_dir = target_path / repo_name
+        
+        # Check if directory already exists
+        if clone_dir.exists():
+            # Check if it's a valid Git repository
+            git_dir = clone_dir / ".git"
+            if git_dir.exists():
+                # It's a valid Git repo, try to pull latest changes
+                try:
+                    result = subprocess.run(
+                        ['git', 'pull'],
+                        cwd=clone_dir,
+                        capture_output=True,
+                        text=True,
+                        shell=True,
+                        timeout=30
+                    )
+                    if result.returncode == 0:
+                        return {
+                            'status': 'updated',
+                            'message': f'Repository already exists at {clone_dir}. Updated to latest version.'
+                        }
+                    else:
+                        return {
+                            'status': 'exists',
+                            'message': f'Repository exists at {clone_dir} but could not update: {result.stderr}. You may need to manually pull changes.'
+                        }
+                except Exception as e:
+                    return {
+                        'status': 'exists',
+                        'message': f'Repository exists at {clone_dir} but could not update: {str(e)}. You may need to manually pull changes.'
+                    }
+            else:
+                # Directory exists but is not a Git repo
+                return {
+                    'status': 'failed',
+                    'message': f'Directory {clone_dir} exists but is not a Git repository. Please remove or rename it and try again.'
+                }
+        
         # Clone the repository
         clone_command = ['git', 'clone', repo_url]
-        if aws_profile:
+        
+        # Determine if this is an AWS CodeCommit URL
+        is_codecommit = 'codecommit' in repo_url.lower()
+        
+        if aws_profile and is_codecommit:
             # Set AWS profile for CodeCommit
             env = os.environ.copy()
             env['AWS_PROFILE'] = aws_profile
@@ -547,7 +595,7 @@ class FlutterSetupTool(BaseTool):
                 if result.returncode == 0:
                     return {
                         'status': 'success',
-                        'message': f'Successfully cloned project to {target_path}'
+                        'message': f'Successfully cloned {repo_name} to {clone_dir}'
                     }
                 else:
                     return {
@@ -560,16 +608,30 @@ class FlutterSetupTool(BaseTool):
                     'message': f'Clone error: {str(e)}'
                 }
         else:
-            success, stdout, stderr = SystemUtils.run_command(clone_command, check=False)
-            if success:
-                return {
-                    'status': 'success',
-                    'message': f'Successfully cloned project to {target_path}'
-                }
-            else:
+            # Standard Git clone (works for GitHub, GitLab, etc.)
+            try:
+                result = subprocess.run(
+                    clone_command,
+                    cwd=target_path,
+                    capture_output=True,
+                    text=True,
+                    check=False,
+                    shell=True  # Use shell for better Windows compatibility
+                )
+                if result.returncode == 0:
+                    return {
+                        'status': 'success',
+                        'message': f'Successfully cloned {repo_name} to {clone_dir}'
+                    }
+                else:
+                    return {
+                        'status': 'failed',
+                        'message': f'Failed to clone: {result.stderr if result.stderr else "Unknown error"}'
+                    }
+            except Exception as e:
                 return {
                     'status': 'failed',
-                    'message': f'Failed to clone: {stderr}'
+                    'message': f'Clone error: {str(e)}'
                 }
     
     def _get_flutter_doctor_instructions(self, flutter_result: Dict[str, str]) -> Dict[str, str]:
@@ -628,6 +690,8 @@ class FlutterSetupTool(BaseTool):
             'success': '✅',
             'installed': '✅',
             'already_installed': '✅',
+            'updated': '✅',
+            'exists': '💡',
             'partial_success': '⚠️',
             'partial': '⚠️',
             'failed': '❌',
