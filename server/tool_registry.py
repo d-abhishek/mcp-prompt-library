@@ -12,6 +12,7 @@ from .tools import (
     EnvironmentSetupTool,
     FlutterSetupTool
 )
+from .auth_utils import require_tool_access, InsufficientPermissionsError
 
 
 def register_tools(mcp):
@@ -38,6 +39,8 @@ def register_tools(mcp):
         Arguments: Optional[List[Dict[str, Any]]] = None
     ) -> str:
         """Create a new MCP prompt file with frontmatter metadata.
+        
+        **ADMIN ONLY**: This tool requires admin group membership.
         
         Args:
             name: The name/identifier for the prompt
@@ -78,6 +81,12 @@ def register_tools(mcp):
             {{ summary_content }}
             {% endif %}
         """
+        # Check tool access permissions
+        try:
+            require_tool_access("create_prompt")
+        except InsufficientPermissionsError as e:
+            return f"❌ {str(e)}"
+        
         return prompt_tool.create_prompt(Name, Description, Content, Arguments)
     
     @mcp.tool()
@@ -89,6 +98,8 @@ def register_tools(mcp):
     ) -> str:
         """Update an existing MCP prompt file.
         
+        **ADMIN ONLY**: This tool requires admin group membership.
+        
         Args:
             name: The name/identifier of the prompt to update
             description: New description (optional)
@@ -97,15 +108,29 @@ def register_tools(mcp):
         
         Note: Content must follow Jinja2 template syntax guidelines. Use {% if %} instead of {{#if}}.
         """
+        # Check tool access permissions
+        try:
+            require_tool_access("update_prompt")
+        except InsufficientPermissionsError as e:
+            return f"❌ {str(e)}"
+        
         return prompt_tool.update_prompt(Name, Description, Content, Arguments)
     
     @mcp.tool()
     def delete_prompt(Name: str) -> str:
         """Delete an MCP prompt file.
         
+        **ADMIN ONLY**: This tool requires admin group membership.
+        
         Args:
             name: The name/identifier of the prompt to delete
         """
+        # Check tool access permissions
+        try:
+            require_tool_access("delete_prompt")
+        except InsufficientPermissionsError as e:
+            return f"❌ {str(e)}"
+        
         return prompt_tool.delete_prompt(Name)
     
     @mcp.tool()
@@ -116,6 +141,12 @@ def register_tools(mcp):
             include_content: Whether to include the full content of each prompt
             query: Optional search query to filter and rank prompts by relevance
         """
+        # Check tool access permissions
+        try:
+            require_tool_access("list_prompts")
+        except InsufficientPermissionsError as e:
+            return f"❌ {str(e)}"
+        
         return prompt_tool.list_prompts(include_content, query)
     
     # ==================== ENVIRONMENT SETUP TOOLS ====================
@@ -142,6 +173,12 @@ def register_tools(mcp):
             update_gitignore: Whether to update .gitignore file (default: True)
             gitignore_entries: Custom entries to add to .gitignore (default: [".github/"])
         """
+        # Check tool access permissions
+        try:
+            require_tool_access("setup_work_environment")
+        except InsufficientPermissionsError as e:
+            return f"❌ {str(e)}"
+        
         return env_tool.setup_work_environment(
             target_directory,
             update_vscode_settings,
@@ -182,6 +219,12 @@ def register_tools(mcp):
             install_flutter: Whether to install Flutter SDK (default: True)
             install_vscode_extensions: Whether to install VS Code extensions (default: True)
         """
+        # Check tool access permissions
+        try:
+            require_tool_access("setup_flutter_developer_environment")
+        except InsufficientPermissionsError as e:
+            return f"❌ {str(e)}"
+        
         return flutter_tool.setup_flutter_developer_environment(
             target_directory,
             flutter_version,
