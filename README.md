@@ -89,9 +89,22 @@ Once created, prompts become available as MCP prompt functions that can be calle
 
 ## 📚 Documentation
 
-- **[Prompt Discovery Guide](PROMPT_DISCOVERY.md)** - Complete guide to smart prompt discovery and auto-execution
-- [Tools Documentation](TOOLS_DOCUMENTATION.md) - Detailed guide for all MCP tools
+- **[Access Control Guide](docs/ACCESS_CONTROL.md)** - Complete guide to authentication, authorization, and team management
+- **[Prompt Discovery Guide](docs/PROMPT_DISCOVERY.md)** - Smart prompt discovery and auto-execution
+- [Tools Documentation](docs/TOOLS_DOCUMENTATION.md) - Detailed guide for all MCP tools
+- [Usage Examples](docs/USAGE_EXAMPLES.md) - Example queries and use cases
+- [Work Environment Setup](docs/WORK_ENVIRONMENT_SETUP.md) - Setup development environment
 - [Server Documentation](server/README.md) - Server setup and configuration
+
+## 🔐 Security & Access Control
+
+The MCP Prompt Library uses AWS Cognito for authentication and implements configuration-driven role-based access control (RBAC):
+
+- **Admin Users**: Full access including prompt management (create/update/delete)
+- **Team Users**: Configurable access to specific tools
+- **Easy Setup**: Add new teams by editing one configuration dictionary
+
+See the [Access Control Guide](docs/ACCESS_CONTROL.md) for complete setup, configuration, and usage instructions.
 
 ## 💡 How Smart Discovery Solves Your Problem
 
