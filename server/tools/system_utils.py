@@ -58,27 +58,41 @@ class SystemUtils:
         Returns:
             tuple: (exists: bool, version: str)
         """
+        # First check if command exists in PATH using shutil.which
+        command_path = shutil.which(command)
+        if not command_path:
+            return False, ""
+        
         try:
             # Try running with --version
             result = subprocess.run(
                 [command, "--version"],
                 capture_output=True,
                 text=True,
-                timeout=5
+                timeout=10,
+                shell=True  # Use shell to properly resolve PATH on Windows
             )
-            return True, result.stdout.strip()
-        except (subprocess.CalledProcessError, FileNotFoundError, subprocess.TimeoutExpired):
-            try:
-                # Try with -v
-                result = subprocess.run(
-                    [command, "-v"],
-                    capture_output=True,
-                    text=True,
-                    timeout=5
-                )
+            if result.returncode == 0:
                 return True, result.stdout.strip()
-            except:
-                return False, ""
+        except (subprocess.CalledProcessError, FileNotFoundError, subprocess.TimeoutExpired):
+            pass
+        
+        try:
+            # Try with -v
+            result = subprocess.run(
+                [command, "-v"],
+                capture_output=True,
+                text=True,
+                timeout=10,
+                shell=True  # Use shell to properly resolve PATH on Windows
+            )
+            if result.returncode == 0:
+                return True, result.stdout.strip()
+        except:
+            pass
+        
+        # Command exists but we couldn't get version, still return True
+        return True, f"Found at {command_path}"
     
     @staticmethod
     def download_file(url: str, destination: pathlib.Path, description: str = "file") -> Tuple[bool, str]:

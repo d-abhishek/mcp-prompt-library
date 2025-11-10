@@ -279,6 +279,7 @@ class FlutterSetupTool(BaseTool):
             
             # ==================== FLUTTER INSTALLATION ====================
             if install_flutter:
+                # Always check first, _install_flutter also checks but this provides better UX
                 flutter_exists, flutter_ver = SystemUtils.check_command_exists('flutter')
                 
                 if flutter_exists:
@@ -287,6 +288,7 @@ class FlutterSetupTool(BaseTool):
                         'message': f'Flutter already installed: {flutter_ver.split()[0] if flutter_ver else "unknown version"}'
                     }
                 else:
+                    # _install_flutter will double-check before attempting download
                     results['flutter'] = self._install_flutter(system)
             
             # ==================== VS CODE EXTENSIONS ====================
@@ -308,6 +310,15 @@ class FlutterSetupTool(BaseTool):
     
     def _install_flutter(self, system: str) -> Dict[str, str]:
         """Internal method to install Flutter SDK."""
+        # First check if Flutter is already installed and in PATH
+        flutter_exists, flutter_ver = SystemUtils.check_command_exists('flutter')
+        
+        if flutter_exists:
+            return {
+                'status': 'already_installed',
+                'message': f'Flutter already installed and available in PATH: {flutter_ver.split()[0] if flutter_ver else "unknown version"}'
+            }
+        
         if system == "Windows":
             # Use user's home directory to avoid permission issues (no admin needed)
             flutter_install_dir = pathlib.Path.home() / "flutter"
