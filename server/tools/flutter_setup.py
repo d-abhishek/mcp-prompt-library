@@ -127,42 +127,30 @@ class FlutterSetupTool(BaseTool):
                 flutter_install_dir = str(pathlib.Path.home() / "flutter")
                 flutter_bin = str(pathlib.Path.home() / "flutter" / "bin")
                 
-                # Get Flutter download URL
-                release_info = self.get_latest_flutter_release("windows")
-                flutter_url = ""
-                if release_info and release_info.get('archive'):
-                    flutter_url = f"https://storage.googleapis.com/flutter_infra_release/releases/{release_info['archive']}"
-                
                 commands["steps"].append({
                     "name": "Check Flutter Installation",
                     "check_command": "flutter --version",
                     "install_commands": [
                         {
-                            "description": "Download Flutter SDK",
-                            "command": f"Invoke-WebRequest -Uri '{flutter_url}' -OutFile '$env:TEMP\\flutter_sdk.zip'",
+                            "description": "Clone Flutter SDK from GitHub (stable branch - much faster than zip download)",
+                            "command": f"git clone https://github.com/flutter/flutter.git -b stable --depth 1 '{flutter_install_dir}'",
                             "skip_if_exists": flutter_install_dir
-                        },
-                        {
-                            "description": "Extract Flutter SDK",
-                            "command": f"Expand-Archive -Path '$env:TEMP\\flutter_sdk.zip' -DestinationPath '{str(pathlib.Path.home())}' -Force",
-                            "skip_if_exists": flutter_install_dir
-                        },
-                        {
-                            "description": "Clean up downloaded archive",
-                            "command": "Remove-Item '$env:TEMP\\flutter_sdk.zip' -Force -ErrorAction SilentlyContinue"
                         },
                         {
                             "description": "Add Flutter to PATH (User)",
-                            "command": f"[Environment]::SetEnvironmentVariable('Path', $env:Path + ';{flutter_bin}', 'User')"
+                            "command": f"$currentPath = [Environment]::GetEnvironmentVariable('Path', 'User'); if ($currentPath -notlike '*{flutter_bin}*') {{ [Environment]::SetEnvironmentVariable('Path', $currentPath + ';{flutter_bin}', 'User') }}"
                         },
                         {
                             "description": "Add Flutter to current session PATH",
-                            "command": f"$env:Path += ';{flutter_bin}'"
+                            "command": f"if ($env:Path -notlike '*{flutter_bin}*') {{ $env:Path += ';{flutter_bin}' }}"
+                        },
+                        {
+                            "description": "Run flutter doctor to download Dart SDK and dependencies",
+                            "command": f"& '{flutter_bin}\\flutter.bat' --version"
                         }
                     ],
                     "required": True,
-                    "description": "Flutter SDK is required for Flutter development",
-                    "flutter_url": flutter_url,
+                    "description": "Flutter SDK is required for Flutter development (installed via Git clone)",
                     "flutter_install_dir": flutter_install_dir
                 })
             
