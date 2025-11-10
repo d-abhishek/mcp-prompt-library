@@ -150,8 +150,6 @@ def require_tool_access(tool_name: str) -> None:
     """
     user_groups = get_user_groups()
     allowed_tools = get_allowed_tools_for_groups(user_groups)
-    token = get_access_token()
-    username = token.claims.get("username", "unknown") # type: ignore
     
     if tool_name not in allowed_tools:
         # Find which groups have access to this tool for the error message
@@ -161,9 +159,9 @@ def require_tool_access(tool_name: str) -> None:
         ]
         
         raise InsufficientPermissionsError(
-            f"Access denied. User '{username}' does not have permission to use '{tool_name}'. "
+            f"You do not have permission to use the '{tool_name}' tool. "
             f"Required group membership: {', '.join(groups_with_access)}. "
-            f"Current groups: {', '.join(user_groups) if user_groups else 'none'}"
+            f"Your current groups: {', '.join(user_groups) if user_groups else 'none'}"
         )
 
 
@@ -180,8 +178,6 @@ def require_prompt_access(prompt_name: str) -> None:
     """
     user_groups = get_user_groups()
     allowed_prompts = get_allowed_prompts_for_groups(user_groups)
-    token = get_access_token()
-    username = token.claims.get("username", "unknown") # type: ignore
     
     if prompt_name not in allowed_prompts:
         # Find which groups have access to this prompt for the error message
@@ -191,7 +187,7 @@ def require_prompt_access(prompt_name: str) -> None:
         ]
         
         raise InsufficientPermissionsError(
-            f"Access denied. User '{username}' does not have permission to use prompt '{prompt_name}'. "
+            f"You do not have permission to use the '{prompt_name}' prompt. "
             f"Required group membership: {', '.join(groups_with_access)}. "
-            f"Current groups: {', '.join(user_groups) if user_groups else 'none'}"
+            f"Your current groups: {', '.join(user_groups) if user_groups else 'none'}"
         )
