@@ -180,7 +180,17 @@ class FlutterSetupTool(BaseTool):
                 commands["steps"].append({
                     "name": "Clone Repository",
                     "check_command": f"Test-Path '{clone_dir}\\.git'",
-                    "install_command": f"git clone {codecommit_repo_url} '{clone_dir}'",
+                    "install_commands": [
+                        {
+                            "description": f"Create target directory if it doesn't exist",
+                            "command": f"New-Item -ItemType Directory -Path '{str(target_path)}' -Force | Out-Null"
+                        },
+                        {
+                            "description": f"Clone project repository from {codecommit_repo_url}",
+                            "command": f"git clone {codecommit_repo_url} '{clone_dir}'",
+                            "skip_if_exists": f"{clone_dir}\\.git"
+                        }
+                    ],
                     "required": False,
                     "description": f"Clone project repository to {clone_dir}",
                     "repo_url": codecommit_repo_url,
