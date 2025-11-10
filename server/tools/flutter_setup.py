@@ -143,14 +143,10 @@ class FlutterSetupTool(BaseTool):
                         {
                             "description": "Add Flutter to current session PATH",
                             "command": f"if ($env:Path -notlike '*{flutter_bin}*') {{ $env:Path += ';{flutter_bin}' }}"
-                        },
-                        {
-                            "description": "Run flutter doctor to download Dart SDK and dependencies",
-                            "command": f"& '{flutter_bin}\\flutter.bat' --version"
                         }
                     ],
                     "required": True,
-                    "description": "Flutter SDK is required for Flutter development (installed via Git clone)",
+                    "description": "Flutter SDK is required for Flutter development (installed via Git clone). Note: First run will download Dart SDK automatically.",
                     "flutter_install_dir": flutter_install_dir
                 })
             
@@ -197,7 +193,7 @@ class FlutterSetupTool(BaseTool):
                 "check_command": "flutter --version",
                 "install_command": "flutter doctor -v",
                 "required": True,
-                "description": "Verify Flutter installation and dependencies"
+                "description": "Verify Flutter installation and dependencies. NOTE: If this is the first time running Flutter, it will download Dart SDK and build tools (5-10 minutes). Please be patient - do not cancel!"
             })
             
             # ==================== POST-SETUP INSTRUCTIONS ====================
