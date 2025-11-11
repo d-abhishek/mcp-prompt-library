@@ -34,12 +34,25 @@ A Model Conte   **Basic Tools:**
    uv install
    ```
 
-2. **Run the MCP Server**
+2. **Configure Environment**
+   ```bash
+   # Copy the example configuration
+   cp .env.example .env
+   
+   # For local testing (authentication disabled):
+   # Edit .env and set LOCAL_TESTING=true
+   
+   # For production (Cognito authentication enabled):
+   # Edit .env and set LOCAL_TESTING=false
+   # Then configure AWS Cognito credentials
+   ```
+
+3. **Run the MCP Server**
    ```bash
    python server.py
    ```
 
-3. **Use the Tools**
+4. **Use the Tools**
    The server provides these main tools:
    
    **Basic Tools:**
@@ -103,6 +116,17 @@ The MCP Prompt Library uses AWS Cognito for authentication and implements config
 - **Admin Users**: Full access including prompt management (create/update/delete)
 - **Team Users**: Configurable access to specific tools
 - **Easy Setup**: Add new teams by editing one configuration dictionary
+
+### Local Testing Mode
+
+For local development and testing, you can disable authentication:
+
+1. Set `LOCAL_TESTING=true` in your `.env` file
+2. Restart the server
+3. All authentication and authorization checks will be bypassed
+4. All tools and prompts will be accessible without Cognito login
+
+**⚠️ Important**: Never use `LOCAL_TESTING=true` in production deployments!
 
 See the [Access Control Guide](docs/ACCESS_CONTROL.md) for complete setup, configuration, and usage instructions.
 

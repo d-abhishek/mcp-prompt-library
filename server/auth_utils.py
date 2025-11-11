@@ -5,6 +5,7 @@ This module provides helper functions for checking user permissions
 based on AWS Cognito user groups with configurable role-based access control.
 """
 
+import os
 from typing import List, Set, Dict
 from fastmcp.server.dependencies import get_access_token
 
@@ -12,6 +13,16 @@ from fastmcp.server.dependencies import get_access_token
 class InsufficientPermissionsError(Exception):
     """Raised when a user lacks required permissions for an operation."""
     pass
+
+
+# Check if running in local testing mode
+def is_local_testing() -> bool:
+    """Check if the application is running in local testing mode.
+    
+    Returns:
+        True if LOCAL_TESTING environment variable is set to 'true', False otherwise
+    """
+    return os.getenv("LOCAL_TESTING", "false").lower() == "true"
 
 
 # ==================== ROLE-BASED ACCESS CONTROL CONFIGURATION ====================
@@ -125,11 +136,15 @@ def get_user_groups() -> List[str]:
     
     Returns:
         List of group names the user is a member of.
-        Returns empty list if no groups are assigned.
+        Returns empty list if no groups are assigned or if in local testing mode.
     
     Raises:
         RuntimeError: If called outside of an authenticated request context.
     """
+    # Skip authentication in local testing mode
+    if is_local_testing():
+        return []
+    
     try:
         token = get_access_token()
         groups = token.claims.get("cognito:groups", []) # type: ignore
@@ -142,6 +157,7 @@ def require_tool_access(tool_name: str) -> None:
     """Require that the user has access to a specific tool.
     
     Checks if any of the user's groups grant access to the specified tool.
+    In local testing mode, all tools are accessible without authentication.
     
     Args:
         tool_name: Name of the tool to check access for
@@ -149,6 +165,10 @@ def require_tool_access(tool_name: str) -> None:
     Raises:
         InsufficientPermissionsError: If the user doesn't have access to the tool
     """
+    # Skip authorization in local testing mode
+    if is_local_testing():
+        return
+    
     user_groups = get_user_groups()
     allowed_tools = get_allowed_tools_for_groups(user_groups)
     
@@ -170,6 +190,7 @@ def require_prompt_access(prompt_name: str) -> None:
     """Require that the user has access to a specific prompt.
     
     Checks if any of the user's groups grant access to the specified prompt.
+    In local testing mode, all prompts are accessible without authentication.
     
     Args:
         prompt_name: Name of the prompt to check access for
@@ -177,6 +198,10 @@ def require_prompt_access(prompt_name: str) -> None:
     Raises:
         InsufficientPermissionsError: If the user doesn't have access to the prompt
     """
+    # Skip authorization in local testing mode
+    if is_local_testing():
+        return
+    
     user_groups = get_user_groups()
     allowed_prompts = get_allowed_prompts_for_groups(user_groups)
     
