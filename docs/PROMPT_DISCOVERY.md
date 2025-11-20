@@ -1,82 +1,75 @@
-# MCP Prompt Discovery & Auto-Execution
+# Smart Prompt Discovery
 
-This document explains how to make your MCP prompts automatically discoverable and executable based on natural language queries.
+This document explains how the MCP Prompt Library implements smart prompt discovery using natural language queries.
 
-## Problem Statement
+## Overview
 
-By default, MCP servers require users to explicitly call prompt functions by name. This means users need to know:
-1. The exact prompt name
-2. The required parameters
-3. When to use which prompt
+Instead of requiring users to know exact prompt names, the library provides intelligent search and discovery through the `list_prompts` tool with optional query parameter.
 
-This creates a poor user experience where users might not discover or use your custom prompts.
-
-## Solution Overview
-
-We've implemented two complementary solutions:
+## Features
 
 ### 1. Enhanced Prompt Metadata
-Added `keywords` and `triggers` to prompt frontmatter for better discoverability.
 
-### 2. Enhanced List Prompts (`list_prompts`)
-A unified tool that can both list all prompts and provide smart suggestions based on queries.
-
-### 3. Automatic Execution (`smart_prompt_executor`)
-A tool that can automatically execute the best matching prompt with extracted parameters.
-
-## How It Works
-
-### Enhanced Prompt Metadata
-
-Your prompts now support additional metadata fields:
+Prompts include searchable metadata in YAML frontmatter:
 
 ```yaml
 ---
 name: create_api
-description: Creates FastAPI applications with best practices
+description: Assists developers in creating a FastAPI-based API following best practices
 keywords:
   - api
   - fastapi
   - rest
   - crud
+  - endpoints
   - create
   - build
-  - generate
+  - backend
 triggers:
   - "create api"
   - "build api"
   - "api for storing"
   - "student information"
+arguments:
+  - name: api_purpose
+    description: What the API is for
+    required: true
 ---
 ```
 
-- **keywords**: Individual words that match user queries
-- **triggers**: Specific phrases that strongly indicate this prompt should be used
+**Metadata Fields:**
+- **keywords**: Individual search terms that match user queries
+- **triggers**: Specific phrases that strongly indicate this prompt
+- **description**: Detailed explanation used for semantic matching
+- **arguments**: Parameter definitions for the prompt
 
-### Enhanced List Prompts
+### 2. Smart Search with `list_prompts`
 
-The `list_prompts` tool now serves dual purposes:
+The `list_prompts` tool serves dual purposes:
 
-**Without query** (traditional listing):
+**Without query** (List all prompts):
+```python
+list_prompts()
 ```
-list_prompts(include_content=False)
-```
-Shows all available prompts in a numbered list.
+Returns all available prompts with their descriptions and arguments.
 
-**With query** (smart search):
+**With query** (Smart search):
+```python
+list_prompts(query="create api for student management")
 ```
-list_prompts(query="create api for student information")
-```
-Analyzes the query using the same scoring algorithm and returns ranked results.
+Analyzes the query and returns ranked results with relevance scores.
 
-**Scoring Factors:**
-- Exact trigger phrase matches (15 points)
-- Keyword matches (8 points each)
-- Name matches (10 points each)
-- Description word matches (5 points each)
-- Content matches (2 points each)
+### Scoring Algorithm
 
-**Example output with query:**
+The search uses a weighted scoring system:
+
+- **Exact trigger phrase match**: 15 points
+- **Keyword match**: 8 points each
+- **Name word match**: 10 points each  
+- **Description word match**: 5 points each
+- **Content word match**: 2 points each (if content included)
+
+**Example Search Result:**
 ```
 🎯 Search results for: 'create api for student information'
 
@@ -85,203 +78,253 @@ Description: Assists developers in creating a FastAPI-based API...
 
 Required arguments:
 - api_purpose: What the API is for
+- expected_parameters: Optional description of expected parameters/fields
 
 Usage: Call the prompt create_api with the appropriate arguments.
 
 Other matches (2 found):
-- code_review (score: 8): Perform a comprehensive code review...
-- code_correctness_review (score: 6): Review code for correctness, functional requirements, and potential bugs...
+- code_review (score: 8)
+- generate_project_documentation (score: 6)
 ```
 
-### Automatic Execution
+## Usage Patterns
 
-The `smart_prompt_executor` tool goes one step further by:
-1. Analyzing the query to suggest the best prompt
-2. Extracting parameters from the natural language query
-3. Automatically executing the prompt with those parameters
+### Discovery Workflow
 
-**Usage:**
-```
-Tool: smart_prompt_executor(
-  query="create api for storing student information. The parameters should be name, class, contact, address",
-  auto_execute=true
-)
+**Step 1: Explore Available Prompts**
+```python
+# List all prompts
+all_prompts = list_prompts()
 ```
 
-**Parameter Extraction Logic:**
-- **API Purpose**: Extracted from phrases like "api for X" or detected domain keywords
-- **Expected Parameters**: Extracted from lists after "parameters should be" or "fields"
-- **Framework/Language**: Detected from context
+**Step 2: Search for Specific Tasks**
+```python
+# Find prompts for API development
+api_prompts = list_prompts(query="create rest api backend")
 
-## Implementation Guide
+# Find prompts for security
+security_prompts = list_prompts(query="security vulnerabilities OWASP")
 
-### Step 1: Update Your Prompts
+# Find prompts for testing
+test_prompts = list_prompts(query="generate test cases")
+```
 
-Add keywords and triggers to your prompt frontmatter:
+**Step 3: Call the Recommended Prompt**
+```python
+# Based on search results, call the appropriate prompt
+result = call_prompt("create_api", {
+    "api_purpose": "student management",
+    "expected_parameters": "name, email, class, enrollment_date"
+})
+```
+
+## Creating Discoverable Prompts
+
+### Step 1: Add Rich Metadata
+
+Include comprehensive keywords and triggers in your prompt frontmatter:
 
 ```yaml
 ---
-name: your_prompt_name
-description: What your prompt does
+name: generate_dockerfile
+description: Generate optimized Dockerfiles for various applications
 keywords:
-  - relevant
-  - keywords
-  - for
-  - matching
+  - docker
+  - dockerfile
+  - container
+  - image
+  - deployment
+  - build
+  - containerize
 triggers:
-  - "exact phrases"
-  - "that should trigger"
-  - "this prompt"
+  - "create dockerfile"
+  - "generate dockerfile"
+  - "containerize application"
+  - "docker image"
 arguments:
-  # ... existing arguments
+  - name: language
+    description: Programming language
+    required: true
+  - name: framework
+    description: Framework name if applicable
+    required: false
 ---
 ```
 
-### Step 2: Use the Discovery Tools
+### Step 2: Choose Effective Keywords
 
-**Option A: Browse All Prompts**
-```
-list_prompts()
+**Good Keywords:**
+- Technical terms: `api`, `rest`, `crud`, `docker`
+- Action words: `create`, `build`, `generate`, `review`
+- Domain terms: `security`, `performance`, `testing`
+- Synonyms: `analyse`/`analyze`, `optimize`/`optimise`
+
+**Avoid:**
+- Overly generic terms: `code`, `help`, `work`
+- Stop words: `the`, `and`, `or`, `but`
+
+### Step 3: Write Clear Triggers
+
+**Good Triggers:**
+- Complete user phrases: "create api", "review code for security"
+- Domain-specific requests: "student information", "user management"
+- Task descriptions: "generate test cases", "analyze performance"
+
+**Pattern Examples:**
+```yaml
+triggers:
+  - "create [type]"      # create api, create dockerfile
+  - "[action] for [purpose]"  # api for student management
+  - "[domain] [task]"    # security analysis, performance review
 ```
 
-**Option B: Smart Search**
-```
-list_prompts(query="user's natural language request")
+## Search Query Best Practices
+
+### Be Specific
+
+❌ **Too vague:**
+```python
+list_prompts(query="code")
 ```
 
-**Option C: Auto-Execute**
-```
-smart_prompt_executor(query="user's request", auto_execute=true)
+✅ **Specific and descriptive:**
+```python
+list_prompts(query="create rest api with database operations")
+list_prompts(query="review python code for security vulnerabilities")
 ```
 
-### Step 3: Extend Auto-Execution
-
-To add auto-execution support for your custom prompts, modify the `smart_prompt_executor` function in `prompt_tools.py`:
+### Include Domain Terms
 
 ```python
-# Add your prompt's auto-execution logic
-elif 'your_keyword' in query_lower and 'trigger_word' in query_lower:
-    # Extract parameters from query
-    param1 = extract_param1(query)
-    param2 = extract_param2(query)
-    
-    # Execute your prompt
-    from prompt_handlers import load_template
-    template = load_template("your_prompt_name")
-    result = template.render(param1=param1, param2=param2)
-    
-    return f"🚀 Auto-executed: your_prompt_name\\n\\n{result}"
+# API development
+list_prompts(query="fastapi backend crud endpoints")
+
+# Security
+list_prompts(query="OWASP security analysis")
+
+# Performance
+list_prompts(query="optimize slow code bottlenecks")
+
+# Testing
+list_prompts(query="unit test generation")
 ```
 
-## Best Practices
+### Use Natural Language
 
-### Writing Good Keywords
-- Include synonyms and related terms
-- Think about how users might describe the task
-- Include both technical and common language terms
+The system understands natural queries:
+```python
+list_prompts(query="I need to create an API for managing products")
+list_prompts(query="help me find performance problems in my code")
+list_prompts(query="generate documentation for my project")
+```
 
-### Writing Good Triggers
-- Use complete phrases users might type
-- Include variations and common phrasings
-- Be specific enough to avoid false matches
+## Example Search Scenarios
 
-### Parameter Extraction
-- Look for common patterns in how users specify requirements
-- Handle both explicit lists and implicit mentions
-- Provide sensible defaults when parameters aren't specified
+### Scenario 1: API Development
 
-## When to Use Each Tool
+**Query:** `"create api for product catalog"`
 
-**Use `list_prompts()` (no query) when:**
-- You want to see all available prompts
-- You're exploring what's available in the library
-- You want to browse the complete catalog
-- You're learning what prompts exist
+**Expected Results:**
+1. `create_api` (high score) - Main API creation prompt
+2. `generate_project_documentation` (medium score) - For API docs
 
-**Use `list_prompts(query='...')` when:**
-- You want to find prompts for a specific task
-- You need smart recommendations with scoring
-- You want to see ranked results
-- You want to understand what parameters are required
+### Scenario 2: Code Quality
 
-**Use `smart_prompt_executor` when:**
-- You want a "one-click" solution
-- You're confident the parameter extraction will work well
-- You want to quickly get results without manual prompt calling
-- You trust the system to interpret your natural language correctly
+**Query:** `"review code for best practices and security"`
 
-## Example Usage Scenarios
+**Expected Results:**
+1. `code_review` (high score) - General code review
+2. `security_vulnerability_analysis` (high score) - Security focus
+3. `code_correctness_review` (medium score) - Correctness check
 
-### Scenario 1: API Creation
-**User Query:** "create api for storing student information. The parameters should be name, class, contact, address"
+### Scenario 3: Performance
 
-**Result:** Automatically detects `create_api` prompt, extracts:
-- `api_purpose`: "student information management"
-- `expected_parameters`: "name, class, contact, address"
+**Query:** `"find slow code and optimization opportunities"`
 
-### Scenario 2: Code Review
-**User Query:** "review my code for security issues"
+**Expected Results:**
+1. `performance_bottleneck_analysis` (high score) - Performance focus
+2. `code_refactoring` (medium score) - Refactoring suggestions
 
-**Result:** Suggests `code_review` prompt with focus on security
+### Scenario 4: Testing
 
-### Scenario 3: Code Correctness Review
-**User Query:** "check if my function meets the requirements and works correctly"
+**Query:** `"generate test cases for authentication module"`
 
-**Result:** Suggests `code_correctness_review` prompt for functional verification and bug detection
+**Expected Results:**
+1. `generate_test_scenarios` (high score) - Test generation
+2. `bug_analysis_and_resolution` (low score) - Related testing
 
-### Scenario 4: Ambiguous Query
-**User Query:** "help me with my project"
+## Integration Examples
 
-**Result:** Lists all available prompts since no specific match found
+### In VS Code with MCP Extension
+
+```typescript
+// Search for prompts
+const results = await mcp.callTool("list_prompts", {
+  query: "create rest api"
+});
+
+// Call the recommended prompt
+const apiCode = await mcp.callPrompt(results.best_match.name, {
+  api_purpose: "user management",
+  expected_parameters: "name, email, password"
+});
+```
+
+### In Claude Desktop
+
+Simply ask:
+- "Search for prompts about creating APIs"
+- "Find prompts for code review"
+- "What prompts help with security analysis?"
+
+The MCP server will use `list_prompts` to find relevant matches.
 
 ## Troubleshooting
 
-### Prompt Not Being Suggested
-1. Check your keywords and triggers are relevant
-2. Verify the prompt file has valid frontmatter
-3. Use `list_prompts` to see all available prompts
+### Low Match Scores
 
-### Auto-Execution Not Working
-1. Ensure auto-execution logic exists for your prompt type
-2. Check parameter extraction is working correctly
-3. Verify the prompt template renders without errors
+**Problem:** Search returns results with low scores (< 10)
 
-### Poor Matching Quality
-1. Add more specific keywords and triggers
-2. Improve the scoring algorithm weights
-3. Add domain-specific matching logic
+**Solutions:**
+1. Add more keywords to the prompt
+2. Include common trigger phrases
+3. Improve description text
+4. Use more specific search terms
 
-## Advanced Customization
+### No Results Found
 
-### Custom Scoring Algorithm
-Modify the scoring logic in `suggest_prompt` to better match your domain:
+**Problem:** Query returns "No prompts found"
 
-```python
-# Custom scoring for your domain
-if 'domain_specific_word' in query_lower:
-    score += 20
-```
+**Solutions:**
+1. Verify prompts have metadata (keywords, triggers)
+2. Try broader search terms
+3. List all prompts to see what's available
+4. Check prompt file format and frontmatter
 
-### Context-Aware Execution
-Enhance parameter extraction to consider project context:
+### Wrong Prompt Suggested
 
-```python
-# Check project files for context
-if project_has_database():
-    add_database_params()
-```
+**Problem:** Search suggests unrelated prompt
 
-### Machine Learning Integration
-Consider integrating ML-based query understanding for better matching accuracy.
+**Solutions:**
+1. Be more specific in query
+2. Review prompt keywords for conflicts
+3. Adjust trigger phrases to be more precise
+4. Use negative keywords if needed (future feature)
 
-## Contributing
+## Best Practices Summary
 
-To add new auto-execution patterns:
-1. Update the keywords/triggers in relevant prompt files
-2. Add extraction logic in `smart_prompt_executor`
-3. Test with various query phrasings
-4. Update this documentation
+1. **Add comprehensive metadata** to all prompts
+2. **Use natural language** queries for better matches
+3. **Be specific** in search terms when possible
+4. **Include synonyms** in keywords
+5. **Test queries** with various phrasings
+6. **Review scores** to understand matching quality
+7. **Iterate on metadata** based on search results
+8. **Document patterns** that work well for your team
 
----
+## Related Documentation
 
-With these tools, your MCP prompts become much more discoverable and user-friendly, significantly improving the developer experience.
+- [USAGE_EXAMPLES.md](USAGE_EXAMPLES.md) - Practical usage examples
+- [TOOLS_DOCUMENTATION.md](TOOLS_DOCUMENTATION.md) - Complete tool reference
+- [README.md](../README.md) - Project overview
+- [ACCESS_CONTROL.md](ACCESS_CONTROL.md) - Permission configuration
