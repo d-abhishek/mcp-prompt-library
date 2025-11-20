@@ -6,6 +6,7 @@ from dotenv import load_dotenv
 from fastmcp import FastMCP
 from .prompt_registry import register_prompts
 from .tool_registry import register_tools
+from .resource_registry import register_resources
 
 from fastmcp.server.auth.providers.aws import AWSCognitoProvider
 
@@ -36,6 +37,7 @@ else:
 
 register_tools(mcp)
 register_prompts(mcp)
+register_resources(mcp)
 
 # Expose ASGI app at /mcp
 app = mcp.http_app()

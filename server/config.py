@@ -15,4 +15,4 @@ PROJECT_ROOT = SERVER_DIR.parent
 PROMPTS_DIR = PROJECT_ROOT / "prompts"
 
 # Source directory for work environment setup files
-SOURCE_GITHUB_DIR = PROJECT_ROOT / "data" / "setup_work_environment"
+SOURCE_GITHUB_DIR = PROJECT_ROOT / "resources" / "setup_work_environment"
