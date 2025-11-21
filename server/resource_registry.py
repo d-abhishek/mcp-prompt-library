@@ -16,18 +16,13 @@ def register_resources(mcp):
     
     @mcp.resource(
         uri="resource://guidelines/commit-messages",
+        name="Git & GitHub Standards",
+        description="Provides comprehensive guidelines for conventional commit format, branch naming conventions, pull request standards, and development workflow best practices",
+        enabled=True,
         meta={"version": "1.0"}
     )
     def get_commit_message_guidelines() -> str:
         """
-        Git & GitHub Standards - Commit Message Format and Best Practices
-        
-        Provides comprehensive guidelines for:
-        - Conventional commit format
-        - Branch naming conventions
-        - Pull request standards
-        - Development workflow best practices
-        
         Returns the complete commit message and GitHub workflow guidelines.
         """
         file_path = SOURCE_GITHUB_DIR / "copilot-commit-message-instructions.md"
@@ -43,23 +38,13 @@ def register_resources(mcp):
     
     @mcp.resource(
         uri="resource://guidelines/coding-standards",
+        name="Code Quality & Development Standards",
+        description="Provides comprehensive guidelines for code readability and consistency, documentation standards, architecture & design principles, security & compliance, performance & efficiency, error handling & robustness, testing & quality assurance, code review focus areas, and language-specific guidelines",
+        enabled=True,
         meta={"version": "1.0"}
     )
     def get_coding_standards() -> str:
         """
-        Company Guidelines for GitHub Copilot - Code Quality & Development Standards
-        
-        Provides comprehensive guidelines for:
-        - Code readability and consistency
-        - Documentation standards
-        - Architecture & design principles
-        - Security & compliance
-        - Performance & efficiency
-        - Error handling & robustness
-        - Testing & quality assurance
-        - Code review focus areas
-        - Language-specific guidelines
-        
         Returns the complete code quality and development standards guidelines.
         """
         file_path = SOURCE_GITHUB_DIR / "copilot-instructions.md"

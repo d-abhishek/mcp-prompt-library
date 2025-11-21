@@ -32,6 +32,9 @@ def register_tools(mcp):
     # ==================== PROMPT MANAGEMENT TOOLS ====================
     
     @mcp.tool(
+        name="create_prompt",
+        description="Create a new MCP prompt file with frontmatter metadata.",
+        enabled=True,
         meta={"version": "1.0"}
     )
     def create_prompt(
@@ -40,8 +43,7 @@ def register_tools(mcp):
         Content: str,
         Arguments: Optional[List[Dict[str, Any]]] = None
     ) -> str:
-        """Create a new MCP prompt file with frontmatter metadata.
-        
+        """
         **ADMIN ONLY**: This tool requires admin group membership.
         
         Args:
@@ -92,6 +94,9 @@ def register_tools(mcp):
         return prompt_tool.create_prompt(Name, Description, Content, Arguments)
     
     @mcp.tool(
+        name="update_prompt",
+        description="Update an existing MCP prompt file.",
+        enabled=True,
         meta={"version": "1.0"}
     )
     def update_prompt(
@@ -100,8 +105,7 @@ def register_tools(mcp):
         Content: Optional[str] = None,
         Arguments: Optional[List[Dict[str, Any]]] = None
     ) -> str:
-        """Update an existing MCP prompt file.
-        
+        """
         **ADMIN ONLY**: This tool requires admin group membership.
         
         Args:
@@ -121,11 +125,13 @@ def register_tools(mcp):
         return prompt_tool.update_prompt(Name, Description, Content, Arguments)
     
     @mcp.tool(
+        name="delete_prompt",
+        description="Delete an MCP prompt file.",
+        enabled=True,
         meta={"version": "1.0"}
     )
     def delete_prompt(Name: str) -> str:
-        """Delete an MCP prompt file.
-        
+        """
         **ADMIN ONLY**: This tool requires admin group membership.
         
         Args:
@@ -140,11 +146,13 @@ def register_tools(mcp):
         return prompt_tool.delete_prompt(Name)
     
     @mcp.tool(
+        name="list_prompts",
+        description="List all available MCP prompts or suggest the best matching prompts for a query.",
+        enabled=True,
         meta={"version": "1.0"}
     )
     def list_prompts(include_content: bool = False, query: Optional[str] = None) -> str:
-        """List all available MCP prompts or suggest the best matching prompts for a query.
-        
+        """
         Args:
             include_content: Whether to include the full content of each prompt
             query: Optional search query to filter and rank prompts by relevance
@@ -160,6 +168,9 @@ def register_tools(mcp):
     # ==================== ENVIRONMENT SETUP TOOLS ====================
     
     @mcp.tool(
+        name="setup_work_environment",
+        description="Setup work environment by copying GitHub Copilot instruction files to target directory.",
+        enabled=True,
         meta={"version": "1.0"}
     )
     def setup_work_environment(
@@ -168,8 +179,7 @@ def register_tools(mcp):
         update_gitignore: bool = True,
         gitignore_entries: Optional[List[str]] = None
     ) -> str:
-        """Setup work environment by copying GitHub Copilot instruction files to target directory.
-        
+        """
         EXACTLY what this tool does:
         1. Creates .github folder in target directory
         2. Copies copilot-instructions.md (code quality guidelines)
@@ -199,6 +209,9 @@ def register_tools(mcp):
     # ==================== FLUTTER SETUP TOOLS ====================
     
     @mcp.tool(
+        name="setup_flutter_developer_environment",
+        description="Setup a complete Flutter development environment for a new developer.",
+        enabled=True,
         meta={"version": "1.0"}
     )
     def setup_flutter_developer_environment(
@@ -211,8 +224,7 @@ def register_tools(mcp):
         install_flutter: bool = True,
         install_vscode_extensions: bool = True
     ) -> str:
-        """Setup a complete Flutter development environment for a new developer.
-        
+        """
         This tool automates the onboarding process by:
         1. Installing Flutter SDK (latest stable version)
         2. Installing AWS CLI
