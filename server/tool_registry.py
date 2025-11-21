@@ -35,7 +35,8 @@ def register_tools(mcp):
         name="create_prompt",
         description="Create a new MCP prompt file with frontmatter metadata.",
         enabled=True,
-        meta={"version": "1.0"}
+        tags={"prompt-management", "create", "templates", "jinja2"},
+        meta={"version": "1.0", "permissions": ["admin"]}
     )
     def create_prompt(
         Name: str,
@@ -44,8 +45,6 @@ def register_tools(mcp):
         Arguments: Optional[List[Dict[str, Any]]] = None
     ) -> str:
         """
-        **ADMIN ONLY**: This tool requires admin group membership.
-        
         Args:
             name: The name/identifier for the prompt
             description: Description of what the prompt does
@@ -97,7 +96,8 @@ def register_tools(mcp):
         name="update_prompt",
         description="Update an existing MCP prompt file.",
         enabled=True,
-        meta={"version": "1.0"}
+        tags={"prompt-management", "update", "templates", "jinja2"},
+        meta={"version": "1.0", "permissions": ["admin"]}
     )
     def update_prompt(
         Name: str,
@@ -106,8 +106,6 @@ def register_tools(mcp):
         Arguments: Optional[List[Dict[str, Any]]] = None
     ) -> str:
         """
-        **ADMIN ONLY**: This tool requires admin group membership.
-        
         Args:
             name: The name/identifier of the prompt to update
             description: New description (optional)
@@ -128,12 +126,11 @@ def register_tools(mcp):
         name="delete_prompt",
         description="Delete an MCP prompt file.",
         enabled=True,
-        meta={"version": "1.0"}
+        tags={"prompt-management", "delete"},
+        meta={"version": "1.0", "permissions": ["admin"]}
     )
     def delete_prompt(Name: str) -> str:
         """
-        **ADMIN ONLY**: This tool requires admin group membership.
-        
         Args:
             name: The name/identifier of the prompt to delete
         """
@@ -149,7 +146,8 @@ def register_tools(mcp):
         name="list_prompts",
         description="List all available MCP prompts or suggest the best matching prompts for a query.",
         enabled=True,
-        meta={"version": "1.0"}
+        tags={"prompt-management", "search", "discovery"},
+        meta={"version": "1.0", "permissions": ["admin", "team-a", "team-b"]}
     )
     def list_prompts(include_content: bool = False, query: Optional[str] = None) -> str:
         """
@@ -171,7 +169,8 @@ def register_tools(mcp):
         name="setup_work_environment",
         description="Setup work environment by copying GitHub Copilot instruction files to target directory.",
         enabled=True,
-        meta={"version": "1.0"}
+        tags={"environment-setup", "copilot", "onboarding"},
+        meta={"version": "1.0", "permissions": ["admin", "team-a", "team-b"]}
     )
     def setup_work_environment(
         target_directory: str,
@@ -212,7 +211,8 @@ def register_tools(mcp):
         name="setup_flutter_developer_environment",
         description="Setup a complete Flutter development environment for a new developer.",
         enabled=True,
-        meta={"version": "1.0"}
+        tags={"environment-setup", "flutter", "onboarding"},
+        meta={"version": "1.0", "permissions": ["admin", "team-a"]}
     )
     def setup_flutter_developer_environment(
         target_directory: str,

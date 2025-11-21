@@ -19,7 +19,8 @@ def register_resources(mcp):
         name="Git & GitHub Standards",
         description="Provides comprehensive guidelines for conventional commit format, branch naming conventions, pull request standards, and development workflow best practices",
         enabled=True,
-        meta={"version": "1.0"}
+        tags={"guidelines", "git", "commits"},
+        meta={"version": "1.0", "permissions": ["admin", "team-a", "team-b"]}
     )
     def get_commit_message_guidelines() -> str:
         """
@@ -41,7 +42,8 @@ def register_resources(mcp):
         name="Code Quality & Development Standards",
         description="Provides comprehensive guidelines for code readability and consistency, documentation standards, architecture & design principles, security & compliance, performance & efficiency, error handling & robustness, testing & quality assurance, code review focus areas, and language-specific guidelines",
         enabled=True,
-        meta={"version": "1.0"}
+        tags={"guidelines", "code-quality", "standards"},
+        meta={"version": "1.0", "permissions": ["admin", "team-a", "team-b"]}
     )
     def get_coding_standards() -> str:
         """
