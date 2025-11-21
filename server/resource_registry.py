@@ -14,7 +14,10 @@ from .config import SOURCE_GITHUB_DIR
 def register_resources(mcp):
     """Register all MCP resources for guidelines and documentation"""
     
-    @mcp.resource("resource://guidelines/commit-messages")
+    @mcp.resource(
+        uri="resource://guidelines/commit-messages",
+        meta={"version": "1.0"}
+    )
     def get_commit_message_guidelines() -> str:
         """
         Git & GitHub Standards - Commit Message Format and Best Practices
@@ -38,7 +41,10 @@ def register_resources(mcp):
         except Exception as e:
             return f"❌ Error reading commit message guidelines: {str(e)}"
     
-    @mcp.resource("resource://guidelines/coding-standards")
+    @mcp.resource(
+        uri="resource://guidelines/coding-standards",
+        meta={"version": "1.0"}
+    )
     def get_coding_standards() -> str:
         """
         Company Guidelines for GitHub Copilot - Code Quality & Development Standards

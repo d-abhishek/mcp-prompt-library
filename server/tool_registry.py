@@ -31,7 +31,9 @@ def register_tools(mcp):
     
     # ==================== PROMPT MANAGEMENT TOOLS ====================
     
-    @mcp.tool()
+    @mcp.tool(
+        meta={"version": "1.0"}
+    )
     def create_prompt(
         Name: str,
         Description: str,
@@ -89,7 +91,9 @@ def register_tools(mcp):
         
         return prompt_tool.create_prompt(Name, Description, Content, Arguments)
     
-    @mcp.tool()
+    @mcp.tool(
+        meta={"version": "1.0"}
+    )
     def update_prompt(
         Name: str,
         Description: Optional[str] = None,
@@ -116,7 +120,9 @@ def register_tools(mcp):
         
         return prompt_tool.update_prompt(Name, Description, Content, Arguments)
     
-    @mcp.tool()
+    @mcp.tool(
+        meta={"version": "1.0"}
+    )
     def delete_prompt(Name: str) -> str:
         """Delete an MCP prompt file.
         
@@ -133,7 +139,9 @@ def register_tools(mcp):
         
         return prompt_tool.delete_prompt(Name)
     
-    @mcp.tool()
+    @mcp.tool(
+        meta={"version": "1.0"}
+    )
     def list_prompts(include_content: bool = False, query: Optional[str] = None) -> str:
         """List all available MCP prompts or suggest the best matching prompts for a query.
         
@@ -151,7 +159,9 @@ def register_tools(mcp):
     
     # ==================== ENVIRONMENT SETUP TOOLS ====================
     
-    @mcp.tool()
+    @mcp.tool(
+        meta={"version": "1.0"}
+    )
     def setup_work_environment(
         target_directory: str,
         update_vscode_settings: bool = True,
@@ -188,7 +198,9 @@ def register_tools(mcp):
     
     # ==================== FLUTTER SETUP TOOLS ====================
     
-    @mcp.tool()
+    @mcp.tool(
+        meta={"version": "1.0"}
+    )
     def setup_flutter_developer_environment(
         target_directory: str,
         flutter_version: str = "latest",
