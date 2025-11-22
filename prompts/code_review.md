@@ -78,123 +78,25 @@ Please locate and analyze the specified file or function for the review.
 
 ## 🎯 Company Coding Guidelines Compliance
 
-Please evaluate the code against these company guidelines:
+**IMPORTANT**: Before proceeding with the review, please retrieve and use the company's official coding standards:
 
-**1. Code Readability and Consistency**
-- Formatting: 4 spaces indentation, 80-120 char lines, proper blank line usage
-- Naming: snake_case/camelCase for variables/functions, PascalCase for classes, ALL_CAPS for constants
-- Structure: Logical organization with related modules grouped together
-- Simplicity: Preference for clear, self-explanatory code over clever solutions
+📚 **Reference Resource**: `resource://guidelines/coding-standards`
 
-*Example Structure:*
-```python
-import os
-import sys
+This resource contains the complete and authoritative company guidelines covering:
+- Code Readability and Consistency
+- Documentation Standards
+- Architecture & Design Principles
+- Security & Compliance
+- Performance & Efficiency
+- Error Handling & Robustness
+- Testing & Quality Assurance
+- Code Review Focus Areas (with severity levels)
+- Language-Specific Guidelines
 
-MAX_USERS = 20
-
-class UserManager:
-    def add_user(self, user):
-        # add user logic here
-        pass
-
-def helper_function():
-    # helper logic
-    pass
-```
-
-*Example Naming:*
-```python
-CONNECTION_TIMEOUT = 30
-
-def get_user_profile(user_id):
-    # function logic
-    pass
-
-class PaymentGateway:
-    # class logic
-    pass
-```
-
-**2. Documentation Standards**
-- Comments explain "why" not "what"
-- Public functions/classes have complete docstrings (purpose, inputs, outputs, exceptions)
-- External documentation maintained and updated
-
-*Example Documentation:*
-```python
-def process_payment(amount, account):
-    """
-    Processes the payment for a given account.
-
-    Args:
-        amount (float): The payment amount.
-        account (Account): The account to debit.
-
-    Returns:
-        bool: True if payment is successful, False otherwise.
-    """
-    # Process payment logic here
-    pass
-```
-
-**3. Security and Compliance**
-- All inputs validated and sanitized
-- No hardcoded credentials or sensitive data exposure
-- OWASP/CERT standards followed
-- Regulatory compliance (GDPR, HIPAA) considered
-
-*Example Error Handling:*
-```python
-try:
-    data = load_resource(file_path)
-except FileNotFoundError:
-    logger.error(f"Resource not found: {file_path}")
-    raise
-```
-
-**4. Architecture Principles**
-- Single Responsibility Principle applied
-- DRY principle followed (no code duplication)
-- Proper separation of concerns
-- Appropriate design patterns used
-
-*Example Modularity:*
-```python
-def send_email(to_address, subject, body):
-    # Sends a single email
-    pass
-
-def notify_user(user):
-    subject = "Notification"
-    body = "You have a new message."
-    send_email(user.email, subject, body)
-```
-
-**5. Testing and Quality Assurance**
-- Code is testable with unit/integration tests
-- Edge cases and error scenarios covered
-- High-quality, meaningful tests (not just coverage metrics)
-
-*Example Testing:*
-```python
-def test_calculate_tax():
-    assert calculate_tax(100, 0.2) == 20
-    assert calculate_tax(0, 0.2) == 0
-```
-
-**6. Automation and Tooling Integration**
-- Compatible with automated formatting/linting tools
-- CI/CD friendly structure
-- Pre-commit hook compliance
-
-*Example Commit Message Format:*
-```text
-Fix mobile login validation issue
-
-- Improve form validation for mobile devices
-- Add tests for new validation cases
-```
+**Instructions**: 
+1. Retrieve the coding standards resource before conducting the review
+2. Use these standards as the authoritative reference for all evaluations
+3. Cite specific sections from the guidelines when identifying issues
 
 Please provide feedback on:
 
