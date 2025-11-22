@@ -24,7 +24,7 @@ Access control is enforced for both **tools** and **prompts** with separate perm
 | `update_prompt` | ✅ | ❌ | ❌ |
 | `delete_prompt` | ✅ | ❌ | ❌ |
 | `list_prompts` | ✅ | ✅ | ✅ |
-| `setup_work_environment` | ✅ | ✅ | ✅ |
+| `setup_coding_guidelines` | ✅ | ✅ | ✅ |
 | `setup_flutter_developer_environment` | ✅ | ✅ | ❌ |
 
 ### Prompt Access Matrix
@@ -63,17 +63,17 @@ TOOL_PERMISSIONS: Dict[str, List[str]] = {
         "update_prompt",
         "delete_prompt",
         "list_prompts",
-        "setup_work_environment",
+        "setup_coding_guidelines",
         "setup_flutter_developer_environment",
     ],
     "team-a": [
         "list_prompts",
-        "setup_work_environment",
+        "setup_coding_guidelines",
         "setup_flutter_developer_environment",
     ],
     "team-b": [
         "list_prompts",
-        "setup_work_environment",
+        "setup_coding_guidelines",
     ],
 }
 ```
@@ -141,7 +141,7 @@ TOOL_PERMISSIONS: Dict[str, List[str]] = {
     "team-b": [...],
     "team-c": [  # <-- NEW TEAM
         "list_prompts",
-        "setup_work_environment",
+        "setup_coding_guidelines",
         # Add any tools this team should access
     ],
 }
@@ -210,13 +210,13 @@ TOOL_PERMISSIONS: Dict[str, List[str]] = {
         "update_prompt",
         "delete_prompt",
         "list_prompts",
-        "setup_work_environment",
+        "setup_coding_guidelines",
         "setup_flutter_developer_environment",
         "my_new_tool",  # <-- ADD HERE
     ],
     "team-a": [
         "list_prompts",
-        "setup_work_environment",
+        "setup_coding_guidelines",
         "setup_flutter_developer_environment",
         "my_new_tool",  # <-- ADD TO TEAMS THAT NEED IT
     ],

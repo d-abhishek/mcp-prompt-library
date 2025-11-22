@@ -166,13 +166,13 @@ def register_tools(mcp):
     # ==================== ENVIRONMENT SETUP TOOLS ====================
     
     @mcp.tool(
-        name="setup_work_environment",
+        name="setup_coding_guidelines",
         description="Setup work environment by copying GitHub Copilot instruction files to target directory.",
         enabled=True,
         tags={"environment-setup", "copilot", "onboarding"},
         meta={"version": "1.0", "permissions": ["admin", "team-a", "team-b"]}
     )
-    def setup_work_environment(
+    def setup_coding_guidelines(
         target_directory: str,
         update_vscode_settings: bool = True,
         update_gitignore: bool = True,
@@ -194,11 +194,11 @@ def register_tools(mcp):
         """
         # Check tool access permissions
         try:
-            require_tool_access("setup_work_environment")
+            require_tool_access("setup_coding_guidelines")
         except InsufficientPermissionsError as e:
             return f"❌ {str(e)}"
         
-        return env_tool.setup_work_environment(
+        return env_tool.setup_coding_guidelines(
             target_directory,
             update_vscode_settings,
             update_gitignore,

@@ -36,23 +36,23 @@ TOOL_PERMISSIONS: Dict[str, List[str]] = {
         "update_prompt",
         "delete_prompt",
         "list_prompts",
-        "setup_work_environment",
+        "setup_coding_guidelines",
         "setup_flutter_developer_environment",
     ],
     "team-a": [
         "list_prompts",
-        "setup_work_environment",
+        "setup_coding_guidelines",
         "setup_flutter_developer_environment",
     ],
     "team-b": [
         "list_prompts",
-        "setup_work_environment",
+        "setup_coding_guidelines",
         "setup_flutter_developer_environment",
     ],
     # Add more teams here as needed:
     # "team-c": [
     #     "list_prompts",
-    #     "setup_work_environment",
+    #     "setup_coding_guidelines",
     # ],
 }
 

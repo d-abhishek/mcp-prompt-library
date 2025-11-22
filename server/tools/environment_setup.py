@@ -22,14 +22,14 @@ class EnvironmentSetupTool(BaseTool):
         super().__init__()
         self.source_github_dir = SOURCE_GITHUB_DIR
     
-    def setup_work_environment(
+    def setup_coding_guidelines(
         self,
         target_directory: str,
         update_vscode_settings: bool = True,
         update_gitignore: bool = True,
         gitignore_entries: Optional[List[str]] = None
     ) -> str:
-        """Setup work environment by copying GitHub Copilot instruction files to target directory.
+        """Setup coding guidelines by copying GitHub Copilot instruction files to target directory.
         
         EXACTLY what this tool does:
         1. Creates .github folder in target directory
@@ -181,4 +181,4 @@ class EnvironmentSetupTool(BaseTool):
             return result
             
         except Exception as e:
-            return f"Error setting up work environment: {str(e)}"
+            return f"Error setting up coding guidelines: {str(e)}"

@@ -132,7 +132,7 @@ result = mcp.call_prompt("create_api", {
 - **`list_prompts`**: List all prompts or search with smart ranking
 
 ### Environment Setup Tools
-- **`setup_work_environment`**: Configure workspace with Copilot instructions
+- **`setup_coding_guidelines`**: Configure workspace with Copilot instructions
   - Copies coding guidelines to `.github/copilot-instructions.md`
   - Copies Git standards to `.github/copilot-commit-message-instructions.md`
   - Updates VS Code settings for commit message generation
@@ -192,7 +192,7 @@ list_prompts(query="check code for vulnerabilities")
 
 ```python
 # Configure workspace with Copilot instructions
-setup_work_environment(
+setup_coding_guidelines(
     target_directory="/path/to/project",
     update_vscode_settings=True,
     update_gitignore=True,
@@ -247,7 +247,7 @@ Configure access in `server/auth_utils.py`:
 ```python
 TEAM_TOOL_ACCESS = {
     "team-a": ["create_prompt", "update_prompt", "list_prompts"],
-    "team-b": ["list_prompts", "setup_work_environment"],
+    "team-b": ["list_prompts", "setup_coding_guidelines"],
 }
 
 TEAM_PROMPT_ACCESS = {
